@@ -1,8 +1,8 @@
 ﻿import { useNavigate } from 'react-router-dom'
 import { clearAccessToken } from '@shared/lib/auth/tokenStorage'
-import styles from './UserPage.module.css'
+import styles from './GymPage.module.css'
 
-export function UserPage() {
+export function GymPage() {
   const navigate = useNavigate()
 
   const handleLogout = () => {
@@ -13,7 +13,7 @@ export function UserPage() {
   return (
     <main className={styles.page}>
       <section className={styles.card}>
-        <p className={styles.text}>Страница пользователя (в разработке)</p>
+        <p className={styles.text}>Страница администратора зала (в разработке)</p>
         <button className={styles.logoutButton} type="button" onClick={handleLogout}>
           Выйти
         </button>

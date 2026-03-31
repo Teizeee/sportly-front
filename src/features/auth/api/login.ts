@@ -1,4 +1,5 @@
-import { httpClient } from '@shared/lib/http/httpClient'
+﻿import { httpClient } from '@shared/lib/http/httpClient'
+import type { UserRole } from '@shared/lib/auth/tokenStorage'
 
 export type LoginRequest = {
   email: string
@@ -7,6 +8,7 @@ export type LoginRequest = {
 
 export type LoginResponse = {
   access_token: string
+  role: UserRole
   token_type?: string
 }
 

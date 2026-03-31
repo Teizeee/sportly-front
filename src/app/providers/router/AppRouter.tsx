@@ -1,13 +1,34 @@
-import type { ReactElement } from 'react'
+﻿import type { ReactElement } from 'react'
 import { Navigate, createBrowserRouter } from 'react-router-dom'
 import { LoginPage } from '@pages/login/ui/LoginPage'
 import { RegisterPage } from '@pages/register/ui/RegisterPage'
-import { UserPage } from '@pages/user/ui/UserPage'
-import { getAccessToken } from '@shared/lib/auth/tokenStorage'
+import { AdminPage } from '@pages/admin/ui/AdminPage'
+import { GymPage } from '@pages/gym/ui/GymPage'
+import { getAccessToken, getUserRole, type UserRole } from '@shared/lib/auth/tokenStorage'
 
-function ProtectedRoute({ children }: { children: ReactElement }) {
-  if (!getAccessToken()) {
+function getDefaultPrivatePath(role: UserRole | null): '/' | '/admin' {
+  return role === 'SUPER_ADMIN' ? '/admin' : '/'
+}
+
+function ProtectedRoute({
+  children,
+  allowedRoles,
+}: {
+  children: ReactElement
+  allowedRoles?: UserRole[]
+}) {
+  const accessToken = getAccessToken()
+
+  if (!accessToken) {
     return <Navigate to="/login" replace />
+  }
+
+  if (allowedRoles) {
+    const currentRole = getUserRole()
+
+    if (!currentRole || !allowedRoles.includes(currentRole)) {
+      return <Navigate to={getDefaultPrivatePath(currentRole)} replace />
+    }
   }
 
   return children
@@ -15,22 +36,34 @@ function ProtectedRoute({ children }: { children: ReactElement }) {
 
 function PublicOnlyRoute({ children }: { children: ReactElement }) {
   if (getAccessToken()) {
-    return <Navigate to="/" replace />
+    return <Navigate to={getDefaultPrivatePath(getUserRole())} replace />
   }
 
   return children
 }
 
 function FallbackRedirect() {
-  return <Navigate to={getAccessToken() ? '/' : '/login'} replace />
+  if (!getAccessToken()) {
+    return <Navigate to="/login" replace />
+  }
+
+  return <Navigate to={getDefaultPrivatePath(getUserRole())} replace />
 }
 
 export const appRouter = createBrowserRouter([
   {
     path: '/',
     element: (
-      <ProtectedRoute>
-        <UserPage />
+      <ProtectedRoute allowedRoles={['GYM_ADMIN']}>
+        <GymPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/admin',
+    element: (
+      <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
+        <AdminPage />
       </ProtectedRoute>
     ),
   },
@@ -49,10 +82,6 @@ export const appRouter = createBrowserRouter([
         <RegisterPage />
       </PublicOnlyRoute>
     ),
-  },
-  {
-    path: '/profile',
-    element: <Navigate to="/" replace />,
   },
   {
     path: '*',

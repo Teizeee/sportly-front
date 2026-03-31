@@ -1,9 +1,9 @@
-import { useState } from 'react'
-import type { FormEvent } from 'react'
+﻿import { useState } from 'react'
+import type { ComponentProps } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import { login } from '@features/auth/api/login'
-import { setAccessToken } from '@shared/lib/auth/tokenStorage'
+import { setAccessToken, setUserRole } from '@shared/lib/auth/tokenStorage'
 import { ApiError } from '@shared/lib/http/ApiError'
 import styles from './LoginForm.module.css'
 
@@ -15,7 +15,7 @@ export function LoginForm() {
 
   const canSubmit = email.trim().length > 0 && password.trim().length > 0 && !isSubmitting
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit: NonNullable<ComponentProps<'form'>['onSubmit']> = async (event) => {
     event.preventDefault()
 
     if (!canSubmit) {
@@ -27,7 +27,14 @@ export function LoginForm() {
       const response = await login({ email: email.trim(), password })
 
       setAccessToken(response.access_token)
+      setUserRole(response.role)
       toast.success('Успешно авторизован')
+
+      if (response.role === 'SUPER_ADMIN') {
+        navigate('/admin', { replace: true })
+        return
+      }
+
       navigate('/', { replace: true })
     } catch (error) {
       if (error instanceof ApiError) {
@@ -86,3 +93,5 @@ export function LoginForm() {
     </form>
   )
 }
+
+

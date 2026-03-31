@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import type { FormEvent } from 'react'
+﻿import { useState } from 'react'
+import type { ComponentProps } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import { register } from '@features/auth/api/register'
@@ -23,7 +23,7 @@ export function RegisterForm() {
     password.trim().length > 0 &&
     !isSubmitting
 
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit: NonNullable<ComponentProps<'form'>['onSubmit']> = async (event) => {
     event.preventDefault()
 
     if (!canSubmit) {
@@ -41,22 +41,22 @@ export function RegisterForm() {
         password,
       })
 
-      toast.success('Успешно зарегистрирован')
+      toast.success('Ð£ÑÐ¿ÐµÑˆÐ½Ð¾ Ð·Ð°Ñ€ÐµÐ³Ð¸ÑÑ‚Ñ€Ð¸Ñ€Ð¾Ð²Ð°Ð½')
       navigate('/login', { replace: true })
     } catch (error) {
       if (error instanceof ApiError) {
         if (error.status >= 500) {
-          toast.error('Внутренняя ошибка сервиса: повторите попытку позже')
+          toast.error('Ð’Ð½ÑƒÑ‚Ñ€ÐµÐ½Ð½ÑÑ Ð¾ÑˆÐ¸Ð±ÐºÐ° ÑÐµÑ€Ð²Ð¸ÑÐ°: Ð¿Ð¾Ð²Ñ‚Ð¾Ñ€Ð¸Ñ‚Ðµ Ð¿Ð¾Ð¿Ñ‹Ñ‚ÐºÑƒ Ð¿Ð¾Ð·Ð¶Ðµ')
           return
         }
 
         if (error.status >= 400 && error.status < 500) {
-          toast.warn('Ошибка регистрации: проверьте введенные данные')
+          toast.warn('ÐžÑˆÐ¸Ð±ÐºÐ° Ñ€ÐµÐ³Ð¸ÑÑ‚Ñ€Ð°Ñ†Ð¸Ð¸: Ð¿Ñ€Ð¾Ð²ÐµÑ€ÑŒÑ‚Ðµ Ð²Ð²ÐµÐ´ÐµÐ½Ð½Ñ‹Ðµ Ð´Ð°Ð½Ð½Ñ‹Ðµ')
           return
         }
       }
 
-      toast.error('Внутренняя ошибка сервиса: повторите попытку позже')
+      toast.error('Ð’Ð½ÑƒÑ‚Ñ€ÐµÐ½Ð½ÑÑ Ð¾ÑˆÐ¸Ð±ÐºÐ° ÑÐµÑ€Ð²Ð¸ÑÐ°: Ð¿Ð¾Ð²Ñ‚Ð¾Ñ€Ð¸Ñ‚Ðµ Ð¿Ð¾Ð¿Ñ‹Ñ‚ÐºÑƒ Ð¿Ð¾Ð·Ð¶Ðµ')
     } finally {
       setIsSubmitting(false)
     }
@@ -66,7 +66,7 @@ export function RegisterForm() {
     <form className={styles.form} onSubmit={handleSubmit}>
       <div className={styles.topRow}>
         <label className={styles.field}>
-          <span className={styles.label}>Фамилия</span>
+          <span className={styles.label}>Ð¤Ð°Ð¼Ð¸Ð»Ð¸Ñ</span>
           <input
             className={styles.input}
             type="text"
@@ -78,7 +78,7 @@ export function RegisterForm() {
         </label>
 
         <label className={styles.field}>
-          <span className={styles.label}>Имя</span>
+          <span className={styles.label}>Ð˜Ð¼Ñ</span>
           <input
             className={styles.input}
             type="text"
@@ -91,7 +91,7 @@ export function RegisterForm() {
       </div>
 
       <label className={styles.field}>
-        <span className={styles.label}>Отчество</span>
+        <span className={styles.label}>ÐžÑ‚Ñ‡ÐµÑÑ‚Ð²Ð¾</span>
         <input
           className={styles.input}
           type="text"
@@ -115,7 +115,7 @@ export function RegisterForm() {
       </label>
 
       <label className={styles.field}>
-        <span className={styles.label}>Пароль</span>
+        <span className={styles.label}>ÐŸÐ°Ñ€Ð¾Ð»ÑŒ</span>
         <input
           className={styles.input}
           type="password"
@@ -128,7 +128,7 @@ export function RegisterForm() {
 
       <div className={styles.actions}>
         <button className={styles.registerButton} type="button" onClick={() => navigate('/login')}>
-          Авторизация
+          ÐÐ²Ñ‚Ð¾Ñ€Ð¸Ð·Ð°Ñ†Ð¸Ñ
         </button>
 
         <button
@@ -136,9 +136,11 @@ export function RegisterForm() {
           type="submit"
           disabled={!canSubmit}
         >
-          {isSubmitting ? 'Регистрация...' : 'Зарегистрироваться'}
+          {isSubmitting ? 'Ð ÐµÐ³Ð¸ÑÑ‚Ñ€Ð°Ñ†Ð¸Ñ...' : 'Ð—Ð°Ñ€ÐµÐ³Ð¸ÑÑ‚Ñ€Ð¸Ñ€Ð¾Ð²Ð°Ñ‚ÑŒÑÑ'}
         </button>
       </div>
     </form>
   )
 }
+
+
