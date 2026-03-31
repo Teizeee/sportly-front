@@ -1,0 +1,36 @@
+.card {
+  width: min(420px, 100%);
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 24px;
+  display: grid;
+  gap: 18px;
+  box-shadow: 0 12px 30px -22px rgba(17, 24, 39, 0.55);
+}
+
+.value {
+  font-size: 42px;
+  line-height: 1;
+  font-weight: 700;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.actions button {
+  border: none;
+  border-radius: 8px;
+  padding: 10px 14px;
+  background: #111827;
+  color: #ffffff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.actions button:hover {
+  background: #1f2937;
+}
