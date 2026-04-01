@@ -41,6 +41,14 @@
   border-top: none;
 }
 
+.row {
+  cursor: pointer;
+}
+
+.row:hover td {
+  background: rgba(255, 255, 255, 0.28);
+}
+
 .actionsCell {
   display: flex;
   flex-direction: column;

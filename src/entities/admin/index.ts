@@ -3,5 +3,6 @@ export type {
   AdminUsersStats,
   CountPayload,
   GymApplication,
+  PlatformSubscription,
   UsersCountPayload,
 } from './model/types'

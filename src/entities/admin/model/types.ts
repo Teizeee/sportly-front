@@ -44,14 +44,24 @@ export type AdminUsersStats = {
 export type GymApplication = {
   id: string
   title: string
+  address: string
+  description: string
   phone: string
+  status?: 'APPROVED' | 'REJECTED' | 'ON_MODERATION'
   created_at: string
   gym_admin: {
+    id: string
     first_name: string
     last_name: string
     patronymic?: string | null
     email: string
   }
+}
+
+export type PlatformSubscription = {
+  id: string
+  value: number
+  description: string
 }
 
 export type AdminDashboardStats = {

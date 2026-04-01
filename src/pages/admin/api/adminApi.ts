@@ -1,5 +1,11 @@
 import { httpClient } from '@shared/lib/http/httpClient'
-import type { AdminUsersStats, CountPayload, GymApplication, UsersCountPayload } from '@entities/admin'
+import type {
+  AdminUsersStats,
+  CountPayload,
+  GymApplication,
+  PlatformSubscription,
+  UsersCountPayload,
+} from '@entities/admin'
 
 function extractCount(payload: CountPayload): number {
   if (typeof payload === 'number' && Number.isFinite(payload)) {
@@ -74,6 +80,48 @@ function extractUsersStats(payload: UsersCountPayload): AdminUsersStats {
   return { total, admins, trainers, clients }
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : null
+}
+
+function extractArrayPayload(payload: unknown): unknown[] {
+  if (Array.isArray(payload)) {
+    return payload
+  }
+
+  const source = asRecord(payload)
+
+  if (!source) {
+    return []
+  }
+
+  const nested = source.items ?? source.results ?? source.data ?? source.subscriptions
+
+  return Array.isArray(nested) ? nested : []
+}
+
+function toPlatformSubscription(raw: unknown): PlatformSubscription | null {
+  const source = asRecord(raw)
+
+  if (!source) {
+    return null
+  }
+
+  const id = typeof source.id === 'string' ? source.id : null
+  const value = getFiniteNumber(source.value)
+  const description = typeof source.description === 'string' ? source.description : null
+
+  if (!id || value === null || !description || description.length === 0) {
+    return null
+  }
+
+  return {
+    id,
+    value,
+    description,
+  }
+}
+
 export async function fetchGymsCount(): Promise<number> {
   const payload = await httpClient.request<CountPayload>('/gyms/count')
   return extractCount(payload)
@@ -87,4 +135,34 @@ export async function fetchUsersStats(): Promise<AdminUsersStats> {
 export async function fetchApplications(): Promise<GymApplication[]> {
   const payload = await httpClient.request<GymApplication[]>('/gyms/applications')
   return Array.isArray(payload) ? payload : []
+}
+
+export async function fetchApplicationById(applicationId: string): Promise<GymApplication | null> {
+  const applications = await fetchApplications()
+  return applications.find((application) => application.id === applicationId) ?? null
+}
+
+export async function fetchPlatformSubscriptions(): Promise<PlatformSubscription[]> {
+  const payload = await httpClient.request<unknown>('/subscriptions/')
+
+  return extractArrayPayload(payload)
+    .map(toPlatformSubscription)
+    .filter((subscription): subscription is PlatformSubscription => subscription !== null)
+}
+
+export async function approveApplication(applicationId: string, subscriptionId: string): Promise<void> {
+  await httpClient.request('/gyms/', {
+    method: 'POST',
+    body: {
+      gym_application_id: applicationId,
+      platform_subscription_id: subscriptionId,
+    },
+  })
+}
+
+export async function rejectApplication(applicationId: string, comment: string): Promise<void> {
+  await httpClient.request(`/gyms/applications/${applicationId}/reject`, {
+    method: 'PATCH',
+    body: { comment },
+  })
 }

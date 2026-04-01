@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { AdminDashboardStats, GymApplication } from '@entities/admin'
 import { fetchApplications, fetchGymsCount, fetchUsersStats } from '../api/adminApi'
 
@@ -7,6 +7,7 @@ type AdminDashboardState = {
   applications: GymApplication[]
   isLoading: boolean
   error: string | null
+  refresh: () => Promise<void>
 }
 
 const initialStats: AdminDashboardStats = {
@@ -21,49 +22,55 @@ export function useAdminDashboard(): AdminDashboardState {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    let isMounted = true
+  const loadPageData = useCallback(async (isCancelled?: () => boolean) => {
+    setIsLoading(true)
+    setError(null)
 
-    async function loadPageData() {
-      setIsLoading(true)
-      setError(null)
+    try {
+      const [gymsCount, users, applicationsPayload] = await Promise.all([
+        fetchGymsCount(),
+        fetchUsersStats(),
+        fetchApplications(),
+      ])
 
-      try {
-        const [gymsCount, users, applicationsPayload] = await Promise.all([
-          fetchGymsCount(),
-          fetchUsersStats(),
-          fetchApplications(),
-        ])
-
-        if (!isMounted) {
-          return
-        }
-
-        setApplications(applicationsPayload)
-        setStats({
-          gymsCount,
-          users,
-          applicationsCount: applicationsPayload.length,
-        })
-      } catch {
-        if (!isMounted) {
-          return
-        }
-
-        setError('Не удалось загрузить данные страницы')
-      } finally {
-        if (isMounted) {
-          setIsLoading(false)
-        }
+      if (isCancelled?.()) {
+        return
       }
-    }
 
-    void loadPageData()
+      setApplications(applicationsPayload)
+      setStats({
+        gymsCount,
+        users,
+        applicationsCount: applicationsPayload.length,
+      })
+    } catch {
+      if (isCancelled?.()) {
+        return
+      }
 
-    return () => {
-      isMounted = false
+      setError('Не удалось загрузить данные страницы')
+    } finally {
+      if (!isCancelled?.()) {
+        setIsLoading(false)
+      }
     }
   }, [])
 
-  return { stats, applications, isLoading, error }
+  useEffect(() => {
+    let cancelled = false
+
+    void loadPageData(() => cancelled)
+
+    return () => {
+      cancelled = true
+    }
+  }, [loadPageData])
+
+  return {
+    stats,
+    applications,
+    isLoading,
+    error,
+    refresh: () => loadPageData(),
+  }
 }
