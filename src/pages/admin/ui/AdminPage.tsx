@@ -12,7 +12,9 @@ import {
   approveApplication,
   fetchApplicationById,
   fetchPlatformSubscriptions,
+  fetchSubscriptionText,
   rejectApplication,
+  updateSubscriptionText,
 } from '../api/adminApi'
 import { adminTabs } from '../model/adminTabs'
 import type { TabKey } from '../model/types'
@@ -27,11 +29,13 @@ function Modal({
   children,
   onClose,
   scrollable = true,
+  cardClassName,
 }: {
   layer: ModalLayer
   children: ReactNode
   onClose: () => void
   scrollable?: boolean
+  cardClassName?: string
 }) {
   return (
     <div
@@ -40,7 +44,7 @@ function Modal({
       role="presentation"
     >
       <div
-        className={`${styles.modalCard} ${scrollable ? styles.modalCardScrollable : styles.modalCardFloating}`}
+        className={`${styles.modalCard} ${scrollable ? styles.modalCardScrollable : styles.modalCardFloating} ${cardClassName ?? ''}`}
         onClick={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -73,6 +77,13 @@ export function AdminPage() {
 
   const [actionPending, setActionPending] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [subscriptionTextId, setSubscriptionTextId] = useState('')
+  const [subscriptionTextDraft, setSubscriptionTextDraft] = useState('')
+  const [subscriptionTextLoading, setSubscriptionTextLoading] = useState(false)
+  const [subscriptionTextSaving, setSubscriptionTextSaving] = useState(false)
+  const [subscriptionTextError, setSubscriptionTextError] = useState<string | null>(null)
+  const [subscriptionTextSuccess, setSubscriptionTextSuccess] = useState<string | null>(null)
+  const [isSaveConfirmOpen, setIsSaveConfirmOpen] = useState(false)
 
   const handleLogout = () => {
     clearAccessToken()
@@ -173,6 +184,36 @@ export function AdminPage() {
     setActionError(null)
   }
 
+  const loadSubscriptionText = async () => {
+    setSubscriptionTextLoading(true)
+    setSubscriptionTextError(null)
+    setSubscriptionTextSuccess(null)
+
+    try {
+      const payload = await fetchSubscriptionText()
+
+      if (!payload) {
+        setSubscriptionTextError('Не удалось загрузить текст подписки')
+        return
+      }
+
+      setSubscriptionTextId(payload.id)
+      setSubscriptionTextDraft(payload.description)
+    } catch {
+      setSubscriptionTextError('Не удалось загрузить текст подписки')
+    } finally {
+      setSubscriptionTextLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab !== 'subscriptions' || subscriptionTextId || subscriptionTextLoading) {
+      return
+    }
+
+    void loadSubscriptionText()
+  }, [activeTab, subscriptionTextId, subscriptionTextLoading])
+
   const handleApprove = async () => {
     if (!approveTarget || !selectedSubscriptionId) {
       return
@@ -209,6 +250,37 @@ export function AdminPage() {
     } finally {
       setActionPending(false)
     }
+  }
+
+  const handleSaveSubscriptionText = async () => {
+    if (!subscriptionTextId) {
+      return
+    }
+
+    setSubscriptionTextSaving(true)
+    setSubscriptionTextError(null)
+    setSubscriptionTextSuccess(null)
+
+    try {
+      await updateSubscriptionText(subscriptionTextId, subscriptionTextDraft)
+      setSubscriptionTextSuccess('Сохранено')
+    } catch {
+      setSubscriptionTextError('Не удалось сохранить текст подписки')
+    } finally {
+      setSubscriptionTextSaving(false)
+    }
+  }
+
+  const openSaveConfirmModal = () => {
+    setIsSaveConfirmOpen(true)
+  }
+
+  const closeSaveConfirmModal = () => {
+    if (subscriptionTextSaving) {
+      return
+    }
+
+    setIsSaveConfirmOpen(false)
   }
 
   const selectedSubscription = subscriptions.find((subscription) => subscription.id === selectedSubscriptionId) ?? null
@@ -252,6 +324,38 @@ export function AdminPage() {
               onRejectClick={openRejectModal}
             />
           </>
+        ) : activeTab === 'subscriptions' ? (
+          <div className={styles.subscriptionContent}>
+            <textarea
+              className={styles.subscriptionTextarea}
+              value={subscriptionTextDraft}
+              onChange={(event) => {
+                setSubscriptionTextDraft(event.target.value)
+                if (subscriptionTextSuccess) {
+                  setSubscriptionTextSuccess(null)
+                }
+              }}
+              disabled={subscriptionTextLoading || subscriptionTextSaving}
+              placeholder="Введите текст подписки"
+            />
+
+            {subscriptionTextLoading ? <p className={styles.modalInfo}>Загружаем текст подписки...</p> : null}
+            {subscriptionTextError ? <p className={styles.modalError}>{subscriptionTextError}</p> : null}
+            {subscriptionTextSuccess ? <p className={styles.subscriptionSuccess}>{subscriptionTextSuccess}</p> : null}
+
+            <div className={styles.subscriptionActions}>
+              <button
+                type="button"
+                className={styles.subscriptionSaveButton}
+                onClick={() => {
+                  openSaveConfirmModal()
+                }}
+                disabled={subscriptionTextLoading || subscriptionTextSaving || !subscriptionTextId}
+              >
+                {subscriptionTextSaving ? 'Сохраняем...' : 'Сохранить'}
+              </button>
+            </div>
+          </div>
         ) : (
           <p className={styles.sectionState}>
             Раздел «{adminTabs.find((tab) => tab.key === activeTab)?.label}» в разработке
@@ -379,6 +483,41 @@ export function AdminPage() {
                 {actionPending ? 'Отправляем...' : 'Да'}
               </button>
               <button type="button" className={styles.secondaryButton} onClick={closeRejectModal} disabled={actionPending}>
+                Нет
+              </button>
+            </div>
+          </div>
+        </Modal>
+      ) : null}
+
+      {isSaveConfirmOpen ? (
+        <Modal
+          layer="base"
+          onClose={closeSaveConfirmModal}
+          scrollable={false}
+          cardClassName={styles.saveConfirmModalCard}
+        >
+          <div className={styles.saveConfirmContent}>
+            <h3 className={styles.saveConfirmTitle}>Вы действительно хотите сохранить данный текст?</h3>
+
+            <div className={styles.saveConfirmActions}>
+              <button
+                type="button"
+                className={styles.saveConfirmButton}
+                onClick={() => {
+                  void handleSaveSubscriptionText()
+                  closeSaveConfirmModal()
+                }}
+                disabled={subscriptionTextSaving}
+              >
+                Да
+              </button>
+              <button
+                type="button"
+                className={styles.saveConfirmButton}
+                onClick={closeSaveConfirmModal}
+                disabled={subscriptionTextSaving}
+              >
                 Нет
               </button>
             </div>

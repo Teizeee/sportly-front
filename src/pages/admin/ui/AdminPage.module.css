@@ -14,6 +14,107 @@
   line-height: 1.2;
 }
 
+.subscriptionContent {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.subscriptionTextarea {
+  width: 100%;
+  min-height: clamp(340px, 55vh, 760px);
+  resize: vertical;
+  border: 1px solid #23221d;
+  border-radius: 14px;
+  background: transparent;
+  padding: 16px 18px;
+  font-family: 'Times New Roman', Georgia, serif;
+  color: #111;
+  font-size: clamp(24px, 1.8vw, 42px);
+  line-height: 1.35;
+}
+
+.subscriptionTextarea::placeholder {
+  color: #938f84;
+}
+
+.subscriptionActions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.subscriptionSaveButton {
+  border-radius: 999px;
+  border: 1px solid #272621;
+  background: #5f5c54;
+  color: #111;
+  padding: 10px 34px;
+  cursor: pointer;
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: clamp(26px, 1.8vw, 44px);
+  line-height: 1;
+}
+
+.subscriptionSuccess {
+  margin: 0;
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: clamp(18px, 1.3vw, 26px);
+  line-height: 1.2;
+  color: #1f6e3d;
+}
+
+.saveConfirmContent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+}
+
+.saveConfirmModalCard {
+  width: min(700px, 100%);
+}
+
+.saveConfirmTitle {
+  margin: 0;
+  text-align: center;
+  font-family: 'Times New Roman', Georgia, serif;
+  color: #111;
+  font-size: clamp(30px, 2.4vw, 62px);
+  line-height: 1.2;
+}
+
+.saveConfirmActions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.saveConfirmButton {
+  min-width: clamp(130px, 16vw, 240px);
+  border: 1px solid #272621;
+  background: #5f5c54;
+  color: #111;
+  padding: 10px 28px;
+  cursor: pointer;
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: clamp(28px, 2vw, 52px);
+  line-height: 1;
+}
+
+.saveConfirmButton:first-child {
+  border-top-left-radius: 999px;
+  border-bottom-left-radius: 999px;
+}
+
+.saveConfirmButton:last-child {
+  border-top-right-radius: 999px;
+  border-bottom-right-radius: 999px;
+}
+
+.saveConfirmButton + .saveConfirmButton {
+  margin-left: 16px;
+}
+
 .modalOverlay {
   position: fixed;
   inset: 0;
@@ -35,6 +136,10 @@
   border-radius: 32px;
   background: #cdc6b5;
   padding: clamp(16px, 2vw, 34px);
+}
+
+.modalCard.saveConfirmModalCard {
+  width: min(700px, 100%);
 }
 
 .modalCardScrollable {
@@ -201,7 +306,10 @@
 .approveButton:disabled,
 .rejectButton:disabled,
 .secondaryButton:disabled,
-.textarea:disabled {
+.textarea:disabled,
+.subscriptionSaveButton:disabled,
+.subscriptionTextarea:disabled,
+.saveConfirmButton:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
@@ -238,6 +346,10 @@
   }
 
   .modalActions {
+    justify-content: flex-start;
+  }
+
+  .subscriptionActions {
     justify-content: flex-start;
   }
 }

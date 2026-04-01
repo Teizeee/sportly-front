@@ -4,6 +4,7 @@ import type {
   CountPayload,
   GymApplication,
   PlatformSubscription,
+  SubscriptionText,
   UsersCountPayload,
 } from '@entities/admin'
 
@@ -122,6 +123,24 @@ function toPlatformSubscription(raw: unknown): PlatformSubscription | null {
   }
 }
 
+function toSubscriptionText(raw: unknown): SubscriptionText | null {
+  const baseSource = asRecord(raw)
+  const source = asRecord(baseSource?.data) ?? baseSource
+
+  if (!source) {
+    return null
+  }
+
+  const id = typeof source.id === 'string' || typeof source.id === 'number' ? String(source.id) : null
+  const description = typeof source.description === 'string' ? source.description : null
+
+  if (!id || description === null) {
+    return null
+  }
+
+  return { id, description }
+}
+
 export async function fetchGymsCount(): Promise<number> {
   const payload = await httpClient.request<CountPayload>('/gyms/count')
   return extractCount(payload)
@@ -164,5 +183,20 @@ export async function rejectApplication(applicationId: string, comment: string):
   await httpClient.request(`/gyms/applications/${applicationId}/reject`, {
     method: 'PATCH',
     body: { comment },
+  })
+}
+
+export async function fetchSubscriptionText(): Promise<SubscriptionText | null> {
+  const payload = await httpClient.request<unknown>('/subscriptions/text')
+  return toSubscriptionText(payload)
+}
+
+export async function updateSubscriptionText(id: string, description: string): Promise<void> {
+  await httpClient.request('/subscriptions/text', {
+    method: 'PUT',
+    body: {
+      id,
+      description,
+    },
   })
 }

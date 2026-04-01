@@ -4,5 +4,6 @@ export type {
   CountPayload,
   GymApplication,
   PlatformSubscription,
+  SubscriptionText,
   UsersCountPayload,
 } from './model/types'

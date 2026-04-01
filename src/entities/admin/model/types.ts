@@ -64,6 +64,11 @@ export type PlatformSubscription = {
   description: string
 }
 
+export type SubscriptionText = {
+  id: string
+  description: string
+}
+
 export type AdminDashboardStats = {
   gymsCount: number
   users: AdminUsersStats
