@@ -40,6 +40,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   const { method = 'GET', body, headers, skipAuth = false } = options
   const url = buildUrl(path)
   const requestHeaders = new Headers(headers)
+  requestHeaders.set('Subsystem', 'web')
   const requestBody = body instanceof FormData ? body : body !== undefined ? JSON.stringify(body) : undefined
 
   if (body !== undefined && !(body instanceof FormData) && !requestHeaders.has('Content-Type')) {
