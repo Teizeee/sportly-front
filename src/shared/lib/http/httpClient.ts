@@ -11,6 +11,8 @@ type RequestOptions = {
   skipAuth?: boolean
 }
 
+const inFlightGetRequests = new Map<string, Promise<unknown>>()
+
 function isRegisterPath(pathname: string): boolean {
   return pathname.endsWith('/register') || pathname.endsWith('/auth/register')
 }
@@ -52,27 +54,53 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     }
   }
 
-  const response = await fetch(url, {
-    method,
-    headers: requestHeaders,
-    body: requestBody,
-  })
+  const isGetRequest = method === 'GET' && requestBody === undefined
+  const getRequestKey = isGetRequest
+    ? `${method}:${url.toString()}:${requestHeaders.get('Authorization') ?? ''}`
+    : null
 
-  const payload = await parseResponseBody(response)
+  if (getRequestKey) {
+    const existingRequest = inFlightGetRequests.get(getRequestKey)
 
-  if (response.status === 401) {
-    clearAccessToken()
-
-    if (window.location.pathname !== '/login') {
-      window.location.assign('/login')
+    if (existingRequest) {
+      return existingRequest as Promise<T>
     }
   }
 
-  if (!response.ok) {
-    throw new ApiError('Request failed', response.status, payload)
+  const sendRequest = async (): Promise<T> => {
+    const response = await fetch(url, {
+      method,
+      headers: requestHeaders,
+      body: requestBody,
+    })
+
+    const payload = await parseResponseBody(response)
+
+    if (response.status === 401) {
+      clearAccessToken()
+
+      if (window.location.pathname !== '/login') {
+        window.location.assign('/login')
+      }
+    }
+
+    if (!response.ok) {
+      throw new ApiError('Request failed', response.status, payload)
+    }
+
+    return payload as T
   }
 
-  return payload as T
+  const requestPromise = sendRequest()
+
+  if (getRequestKey) {
+    inFlightGetRequests.set(getRequestKey, requestPromise as Promise<unknown>)
+    requestPromise.finally(() => {
+      inFlightGetRequests.delete(getRequestKey)
+    })
+  }
+
+  return requestPromise
 }
 
 export const httpClient = { request }

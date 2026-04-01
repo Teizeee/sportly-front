@@ -1,0 +1,41 @@
+.tabs {
+  margin-top: 22px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.tabButton {
+  border: none;
+  border-radius: 14px;
+  background: transparent;
+  color: #121212;
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: clamp(22px, 2vw, 34px);
+  line-height: 1.1;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.active {
+  background: #646357;
+}
+
+@media (max-width: 1366px) {
+  .tabButton {
+    font-size: clamp(20px, 1.6vw, 28px);
+  }
+}
+
+@media (max-width: 1024px) {
+  .tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .tabs {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+}

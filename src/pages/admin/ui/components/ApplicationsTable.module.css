@@ -1,0 +1,78 @@
+.sectionState {
+  margin: 16px 0 0;
+  font-family: 'Times New Roman', Georgia, serif;
+  color: #222;
+  font-size: clamp(18px, 1.5vw, 26px);
+  line-height: 1.2;
+}
+
+.tableWrapper {
+  margin-top: 18px;
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+}
+
+.table thead th {
+  text-align: left;
+  color: #646357;
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: clamp(18px, 1.6vw, 30px);
+  font-weight: 400;
+  line-height: 1.1;
+  padding: 0 12px 10px 0;
+}
+
+.table tbody td {
+  color: #121212;
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: clamp(18px, 1.4vw, 26px);
+  line-height: 1.18;
+  vertical-align: top;
+  padding: 10px 12px 10px 0;
+  border-top: 1px solid #b4ad9f;
+}
+
+.table tbody tr:first-child td {
+  border-top: none;
+}
+
+.actionsCell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.approveButton,
+.rejectButton {
+  border-radius: 12px;
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: clamp(14px, 1.1vw, 20px);
+  line-height: 1;
+  width: 110px;
+  padding: 4px 10px;
+  background: transparent;
+  cursor: pointer;
+  text-align: center;
+}
+
+@media (max-width: 1366px) {
+  .table {
+    min-width: 700px;
+  }
+}
+
+.approveButton {
+  border: 1px solid #27b54f;
+  color: #27b54f;
+}
+
+.rejectButton {
+  border: 1px solid #f05050;
+  color: #f05050;
+}

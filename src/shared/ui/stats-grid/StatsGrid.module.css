@@ -1,0 +1,104 @@
+.statsGrid {
+  margin-top: 28px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(220px, 250px));
+  justify-content: space-between;
+  gap: 0;
+}
+
+.statCard {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  min-height: 200px;
+  max-height: 250px;
+  border-radius: 20px;
+  background: #cdc6b5;
+  padding: 20px 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+.statLabel {
+  margin: 0;
+  font-family: 'Times New Roman', Georgia, serif;
+  color: #111;
+  font-size: clamp(26px, 2.2vw, 40px);
+  line-height: 1.15;
+}
+
+.statValue {
+  margin: 14px 0 0;
+  font-family: 'Times New Roman', Georgia, serif;
+  color: #0b0b0b;
+  font-size: clamp(54px, 4.4vw, 76px);
+  line-height: 1;
+  font-weight: 700;
+}
+
+.statHint {
+  margin: 10px 0 0;
+  font-family: 'Times New Roman', Georgia, serif;
+  color: #2d2d2d;
+  font-size: clamp(20px, 1.45vw, 30px);
+  line-height: 1.2;
+}
+
+.statDetails {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.statDetail {
+  margin: 0;
+  font-family: 'Times New Roman', Georgia, serif;
+  color: #111;
+  font-size: clamp(20px, 1.45vw, 32px);
+  line-height: 1.15;
+}
+
+@media (max-width: 1366px) {
+  .statsGrid {
+    grid-template-columns: repeat(3, minmax(190px, 230px));
+  }
+
+  .statCard {
+    min-height: 176px;
+    max-height: 230px;
+    padding: 16px 14px;
+  }
+
+  .statLabel {
+    font-size: clamp(24px, 1.9vw, 34px);
+  }
+
+  .statValue {
+    font-size: clamp(44px, 3.3vw, 60px);
+  }
+
+  .statHint {
+    font-size: clamp(18px, 1.3vw, 24px);
+  }
+}
+
+@media (max-width: 1024px) {
+  .statsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    justify-content: stretch;
+    gap: 14px;
+  }
+}
+
+@media (max-width: 720px) {
+  .statsGrid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .statCard {
+    min-height: 190px;
+    max-height: none;
+  }
+}

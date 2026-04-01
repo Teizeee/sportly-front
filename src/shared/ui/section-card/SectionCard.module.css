@@ -1,0 +1,18 @@
+.card {
+  margin-top: 20px;
+  border-radius: 20px;
+  background: #cdc6b5;
+  padding: 24px 24px 20px;
+}
+
+@media (max-width: 1366px) {
+  .card {
+    padding: 18px 18px 16px;
+  }
+}
+
+@media (max-width: 720px) {
+  .card {
+    padding: 20px 16px;
+  }
+}

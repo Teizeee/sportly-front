@@ -1,0 +1,35 @@
+.page {
+  min-height: 100vh;
+  padding: 40px 24px 48px;
+  background: #efeeea;
+}
+
+.container {
+  width: min(1060px, 100%);
+  margin: 0 auto;
+}
+
+@media (max-width: 1600px) {
+  .page {
+    padding-top: 28px;
+    padding-bottom: 36px;
+  }
+}
+
+@media (max-width: 1366px) {
+  .container {
+    width: min(980px, 100%);
+  }
+}
+
+@media (max-width: 1024px) {
+  .page {
+    padding-top: 24px;
+  }
+}
+
+@media (max-width: 720px) {
+  .page {
+    padding-inline: 14px;
+  }
+}
