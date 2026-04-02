@@ -1,0 +1,314 @@
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.title {
+  margin: 0;
+  font-family: 'Times New Roman', Georgia, serif;
+  color: #121212;
+  font-size: clamp(28px, 2.4vw, 44px);
+  line-height: 1.05;
+}
+
+.searchRow {
+  position: relative;
+}
+
+.searchInput {
+  width: 100%;
+  border: 1px solid #2a2821;
+  border-radius: 18px;
+  background: transparent;
+  padding: 10px 52px 10px 14px;
+  font-family: 'Times New Roman', Georgia, serif;
+  color: #111;
+  font-size: clamp(22px, 1.7vw, 34px);
+  line-height: 1.2;
+}
+
+.searchInput::placeholder {
+  color: #7b7668;
+}
+
+.searchIcon {
+  position: absolute;
+  top: 50%;
+  right: 16px;
+  width: 28px;
+  height: 28px;
+  transform: translateY(-50%);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='28' height='28' viewBox='0 0 24 24' fill='none' stroke='%23121212' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cline x1='20' y1='20' x2='16.65' y2='16.65'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
+
+.listArea {
+  max-height: min(58vh, 900px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-right: 4px;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border: 1px solid #2a2821;
+  border-radius: 14px;
+  padding: 14px 16px;
+}
+
+.itemText {
+  margin: 0;
+  font-family: 'Times New Roman', Georgia, serif;
+  color: #111;
+  font-size: clamp(26px, 1.9vw, 36px);
+  line-height: 1.2;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.editButton,
+.blockButton {
+  border: 1px solid #2a2821;
+  border-radius: 12px;
+  background: transparent;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: clamp(22px, 1.5vw, 32px);
+  line-height: 1;
+}
+
+.editButton {
+  color: #111;
+}
+
+.blockButton {
+  color: #dd3a3a;
+  border-color: #dd3a3a;
+}
+
+.unblockButton {
+  color: #30b25b;
+  border-color: #30b25b;
+}
+
+.info,
+.error {
+  margin: 0;
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: clamp(18px, 1.3vw, 24px);
+  line-height: 1.2;
+}
+
+.info {
+  color: #4c4b45;
+}
+
+.error {
+  color: #a92525;
+}
+
+.editButton:disabled,
+.blockButton:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+@media (max-width: 1024px) {
+  .item {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .actions {
+    width: 100%;
+    flex-direction: row;
+    justify-content: flex-start;
+  }
+}
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.42);
+  padding: 20px;
+}
+
+.modalCard {
+  width: min(920px, 100%);
+  border: 1px solid #2a2821;
+  border-radius: 16px;
+  background: #cdc6b5;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.modalTitle {
+  margin: 0;
+  text-align: center;
+  font-family: 'Times New Roman', Georgia, serif;
+  color: #111;
+  font-size: clamp(42px, 3.2vw, 74px);
+  line-height: 1.15;
+}
+
+.modalTextarea {
+  width: 100%;
+  min-height: clamp(210px, 34vh, 360px);
+  resize: vertical;
+  border: 1px solid #2a2821;
+  border-radius: 14px;
+  background: transparent;
+  padding: 14px;
+  font-family: 'Times New Roman', Georgia, serif;
+  color: #111;
+  font-size: clamp(30px, 2.1vw, 52px);
+  line-height: 1.2;
+}
+
+.modalTextarea::placeholder {
+  color: #938f84;
+}
+
+.modalActions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modalButton {
+  min-width: clamp(120px, 14vw, 220px);
+  border: 1px solid #2a2821;
+  background: #5f5c54;
+  color: #111;
+  padding: 10px 24px;
+  cursor: pointer;
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: clamp(34px, 2.4vw, 56px);
+  line-height: 1;
+}
+
+.modalButton:first-child {
+  border-top-left-radius: 999px;
+  border-bottom-left-radius: 999px;
+}
+
+.modalButton:last-child {
+  border-top-right-radius: 999px;
+  border-bottom-right-radius: 999px;
+}
+
+.modalButton + .modalButton {
+  margin-left: 16px;
+}
+
+.modalButton:disabled,
+.modalTextarea:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.editModalCard {
+  width: min(720px, 100%);
+  border: 1px solid #2a2821;
+  border-radius: 14px;
+  background: #cdc6b5;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+}
+
+.avatarBox {
+  width: 140px;
+  height: 140px;
+  border: 1px solid #2a2821;
+  background: transparent;
+  overflow: hidden;
+}
+
+.avatarImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.editLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: 'Times New Roman', Georgia, serif;
+  color: #111;
+  font-size: clamp(24px, 1.8vw, 44px);
+  line-height: 1.1;
+}
+
+.editInput {
+  width: 100%;
+  border: 1px solid #2a2821;
+  border-radius: 12px;
+  background: transparent;
+  padding: 8px 12px;
+  font-family: 'Times New Roman', Georgia, serif;
+  color: #111;
+  font-size: clamp(22px, 1.7vw, 40px);
+  line-height: 1.2;
+}
+
+.editTextarea {
+  width: 100%;
+  min-height: 180px;
+  resize: vertical;
+  border: 1px solid #2a2821;
+  border-radius: 12px;
+  background: transparent;
+  padding: 8px 12px;
+  font-family: 'Times New Roman', Georgia, serif;
+  color: #111;
+  font-size: clamp(22px, 1.7vw, 40px);
+  line-height: 1.2;
+}
+
+.saveEditButton {
+  margin: 10px auto 0;
+  width: min(420px, 100%);
+  border: 1px solid #2a2821;
+  border-radius: 999px;
+  background: #5f5c54;
+  color: #111;
+  padding: 10px 16px;
+  cursor: pointer;
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: clamp(28px, 2vw, 46px);
+  line-height: 1;
+}
+
+.saveEditButton:disabled,
+.editInput:disabled,
+.editTextarea:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

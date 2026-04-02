@@ -2,9 +2,12 @@ import { httpClient } from '@shared/lib/http/httpClient'
 import type {
   AdminUsersStats,
   CountPayload,
+  EditableGym,
+  EditableUser,
   GymApplication,
   PlatformSubscription,
   SubscriptionText,
+  UserRole,
   UsersCountPayload,
 } from '@entities/admin'
 
@@ -141,6 +144,96 @@ function toSubscriptionText(raw: unknown): SubscriptionText | null {
   return { id, description }
 }
 
+function toEditableUser(raw: unknown): EditableUser | null {
+  const source = asRecord(raw)
+
+  if (!source) {
+    return null
+  }
+
+  const id = typeof source.id === 'string' ? source.id : null
+  const firstName = typeof source.first_name === 'string' ? source.first_name : null
+  const lastName = typeof source.last_name === 'string' ? source.last_name : null
+  const email = typeof source.email === 'string' ? source.email : null
+  const patronymic = typeof source.patronymic === 'string' || source.patronymic === null ? source.patronymic : null
+  const birthDate = typeof source.birth_date === 'string' || source.birth_date === null ? source.birth_date : null
+  const blockedAt = typeof source.blocked_at === 'string' || source.blocked_at === null ? source.blocked_at : null
+  const role = source.role === 'CLIENT' || source.role === 'TRAINER' || source.role === 'GYM_ADMIN' || source.role === 'SUPER_ADMIN'
+    ? source.role
+    : 'CLIENT'
+  const trainerProfileRaw = asRecord(source.trainer_profile)
+  const trainerProfileId = typeof trainerProfileRaw?.id === 'string' ? trainerProfileRaw.id : null
+  const trainerProfileUserId = typeof trainerProfileRaw?.user_id === 'string' ? trainerProfileRaw.user_id : null
+  const trainerProfileGymId = typeof trainerProfileRaw?.gym_id === 'string' ? trainerProfileRaw.gym_id : null
+  const trainerProfilePhone = typeof trainerProfileRaw?.phone === 'string' ? trainerProfileRaw.phone : null
+  const trainerProfileDescription = typeof trainerProfileRaw?.description === 'string' ? trainerProfileRaw.description : null
+  const trainerProfilePassword =
+    typeof trainerProfileRaw?.password === 'string' || trainerProfileRaw?.password === null
+      ? trainerProfileRaw.password
+      : null
+
+  if (!id || !firstName || !lastName || !email) {
+    return null
+  }
+
+  return {
+    id,
+    first_name: firstName,
+    last_name: lastName,
+    email,
+    patronymic,
+    birth_date: birthDate,
+    role,
+    trainer_profile:
+      trainerProfileId && trainerProfileUserId && trainerProfileGymId && trainerProfilePhone && trainerProfileDescription
+        ? {
+            id: trainerProfileId,
+            user_id: trainerProfileUserId,
+            gym_id: trainerProfileGymId,
+            phone: trainerProfilePhone,
+            description: trainerProfileDescription,
+            password: trainerProfilePassword,
+          }
+        : null,
+    blocked_at: blockedAt,
+  }
+}
+
+function toEditableGym(raw: unknown): EditableGym | null {
+  const source = asRecord(raw)
+
+  if (!source) {
+    return null
+  }
+
+  const id = typeof source.id === 'string' ? source.id : null
+  const gymApplication = asRecord(source.gym_application)
+  const title =
+    typeof source.title === 'string'
+      ? source.title
+      : typeof gymApplication?.title === 'string'
+        ? gymApplication.title
+        : null
+  const phone =
+    typeof source.phone === 'string'
+      ? source.phone
+      : typeof gymApplication?.phone === 'string'
+        ? gymApplication.phone
+        : null
+  const status = source.status === 'ACTIVE' || source.status === 'BLOCKED' ? source.status : undefined
+
+  if (!id || !title || !phone) {
+    return null
+  }
+
+  return {
+    id,
+    title,
+    phone,
+    status,
+  }
+}
+
 export async function fetchGymsCount(): Promise<number> {
   const payload = await httpClient.request<CountPayload>('/gyms/count')
   return extractCount(payload)
@@ -198,5 +291,67 @@ export async function updateSubscriptionText(id: string, description: string): P
       id,
       description,
     },
+  })
+}
+
+export async function fetchUsersByRole(role: Exclude<UserRole, 'SUPER_ADMIN'>): Promise<EditableUser[]> {
+  const payload = await httpClient.request<unknown>(`/auth/users?role=${role}&include_blocked=True`)
+
+  return extractArrayPayload(payload)
+    .map(toEditableUser)
+    .filter((user): user is EditableUser => user !== null)
+}
+
+export async function blockUser(userId: string, comment: string): Promise<void> {
+  await httpClient.request(`/auth/users/${userId}/block`, {
+    method: 'POST',
+    body: { comment },
+  })
+}
+
+export async function unblockUser(userId: string): Promise<void> {
+  await httpClient.request(`/auth/users/${userId}/unblock`, {
+    method: 'POST',
+  })
+}
+
+export async function updateUserById(
+  userId: string,
+  payload: {
+    last_name: string
+    first_name: string
+    patronymic: string | null
+    email: string
+    phone?: string | null
+    description?: string | null
+    password?: string | null
+  },
+): Promise<void> {
+  const normalizedPayload = Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== undefined))
+
+  await httpClient.request(`/users/${userId}/`, {
+    method: 'PUT',
+    body: normalizedPayload,
+  })
+}
+
+export async function fetchGyms(): Promise<EditableGym[]> {
+  const payload = await httpClient.request<unknown>('/gyms')
+
+  return extractArrayPayload(payload)
+    .map(toEditableGym)
+    .filter((gym): gym is EditableGym => gym !== null)
+}
+
+export async function blockGym(gymId: string, comment: string): Promise<void> {
+  await httpClient.request(`/gyms/${gymId}/block`, {
+    method: 'POST',
+    body: { comment },
+  })
+}
+
+export async function unblockGym(gymId: string): Promise<void> {
+  await httpClient.request(`/gyms/${gymId}/unblock`, {
+    method: 'POST',
   })
 }

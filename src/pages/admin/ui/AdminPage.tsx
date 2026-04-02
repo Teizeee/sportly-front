@@ -20,6 +20,7 @@ import { adminTabs } from '../model/adminTabs'
 import type { TabKey } from '../model/types'
 import { useAdminDashboard } from '../model/useAdminDashboard'
 import { ApplicationsTable } from './components/ApplicationsTable'
+import { EditingPanel } from './components/EditingPanel'
 import styles from './AdminPage.module.css'
 
 type ModalLayer = 'base' | 'stacked'
@@ -324,6 +325,8 @@ export function AdminPage() {
               onRejectClick={openRejectModal}
             />
           </>
+        ) : activeTab === 'editing' ? (
+          <EditingPanel />
         ) : activeTab === 'subscriptions' ? (
           <div className={styles.subscriptionContent}>
             <textarea

@@ -69,6 +69,36 @@ export type SubscriptionText = {
   description: string
 }
 
+export type UserRole = 'CLIENT' | 'TRAINER' | 'GYM_ADMIN' | 'SUPER_ADMIN'
+
+export type TrainerProfile = {
+  id: string
+  user_id: string
+  gym_id: string
+  phone: string
+  description: string
+  password?: string | null
+}
+
+export type EditableUser = {
+  email: string
+  first_name: string
+  last_name: string
+  patronymic: string | null
+  birth_date: string | null
+  role: UserRole
+  id: string
+  trainer_profile: TrainerProfile | null
+  blocked_at: string | null
+}
+
+export type EditableGym = {
+  id: string
+  title: string
+  phone: string
+  status?: 'ACTIVE' | 'BLOCKED'
+}
+
 export type AdminDashboardStats = {
   gymsCount: number
   users: AdminUsersStats
