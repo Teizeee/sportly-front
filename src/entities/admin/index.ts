@@ -6,7 +6,11 @@ export type {
   EditableUser,
   GymApplication,
   PlatformSubscription,
+  ReviewGymInfo,
+  ReviewUserInfo,
   SubscriptionText,
+  TrainerReviewAdmin,
+  GymReviewAdmin,
   UserRole,
   UsersCountPayload,
 } from './model/types'

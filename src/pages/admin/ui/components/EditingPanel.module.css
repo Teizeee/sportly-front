@@ -46,7 +46,7 @@
 }
 
 .listArea {
-  max-height: min(58vh, 900px);
+  height: min(58vh, 900px);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -241,6 +241,30 @@
   overflow-y: auto;
 }
 
+.gymEditModalCard {
+  width: min(1160px, 100%);
+  border: 1px solid #2a2821;
+  border-radius: 14px;
+  background: #cdc6b5;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+}
+
+.gymTopRow {
+  display: flex;
+  align-items: flex-start;
+}
+
+.gymMetaGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 22px;
+}
+
 .avatarBox {
   width: 140px;
   height: 140px;
@@ -292,6 +316,63 @@
   line-height: 1.2;
 }
 
+.descriptionCounter {
+  align-self: flex-end;
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: clamp(20px, 1.4vw, 30px);
+  color: #8d8a82;
+}
+
+.gymScheduleBlock {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.scheduleTitle {
+  margin: 0;
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: clamp(24px, 1.8vw, 42px);
+  line-height: 1.1;
+  color: #111;
+}
+
+.scheduleRow {
+  display: grid;
+  grid-template-columns: minmax(160px, 1fr) minmax(120px, 220px) auto minmax(120px, 220px);
+  align-items: center;
+  gap: 10px;
+}
+
+.scheduleDay {
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: clamp(22px, 1.6vw, 36px);
+  line-height: 1.1;
+  color: #111;
+}
+
+.scheduleInput {
+  width: 100%;
+  border: 1px solid #2a2821;
+  border-radius: 12px;
+  background: transparent;
+  padding: 8px 12px;
+  font-family: 'Times New Roman', Georgia, serif;
+  color: #111;
+  font-size: clamp(22px, 1.6vw, 34px);
+  line-height: 1.1;
+}
+
+.scheduleDash {
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: clamp(24px, 1.8vw, 38px);
+  color: #111;
+}
+
+.subscriptionLabel {
+  max-width: 560px;
+}
+
 .saveEditButton {
   margin: 10px auto 0;
   width: min(420px, 100%);
@@ -308,7 +389,24 @@
 
 .saveEditButton:disabled,
 .editInput:disabled,
-.editTextarea:disabled {
+.editTextarea:disabled,
+.scheduleInput:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+@media (max-width: 900px) {
+  .gymMetaGrid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .scheduleRow {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .scheduleDash {
+    display: none;
+  }
 }

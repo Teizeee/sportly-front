@@ -1,80 +1,28 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { EditableGym, EditableUser, UserRole } from '@entities/admin'
-import { API_BASE_URL } from '@shared/config/api'
+import type { EditableGym, EditableUser } from '@entities/admin'
 import { TabNav } from '@shared/ui/tab-nav/TabNav'
-import { blockGym, blockUser, fetchGyms, fetchUsersByRole, unblockGym, unblockUser, updateUserById } from '../../api/adminApi'
+import { blockGym, blockUser, fetchGyms, fetchUsersByRole, unblockGym, unblockUser, updateGymById, updateUserById } from '../../api/adminApi'
+import {
+  editingPanelText as text,
+  editingTabs,
+  gymWorkDays,
+  roleByTab,
+  type EditingTabKey,
+} from '../../model/editingPanel.constants'
+import {
+  formatUserName,
+  isGymBlocked,
+  isUserBlocked,
+  normalizeInputTime,
+  readTrainerPassword,
+  resolveAvatarBaseUrl,
+  toInputHour,
+} from '../../model/editingPanel.utils'
+import { ConfirmActionModal } from './ConfirmActionModal'
+import { EditingEntitiesList } from './EditingEntitiesList'
+import { GymEditModal } from './GymEditModal'
+import { UserEditModal } from './UserEditModal'
 import styles from './EditingPanel.module.css'
-
-type EditingTabKey = 'users' | 'trainers' | 'gymAdmins' | 'gyms'
-
-const text = {
-  users: '\u041f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u0438',
-  trainers: '\u0422\u0440\u0435\u043d\u0435\u0440\u044b',
-  gymAdmins: '\u0410\u0434\u043c\u0438\u043d\u044b \u0437\u0430\u043b\u043e\u0432',
-  gyms: '\u0417\u0430\u043b\u044b',
-  editing: '\u0420\u0435\u0434\u0430\u043a\u0442\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u0435',
-  tabsAria: '\u0412\u043a\u043b\u0430\u0434\u043a\u0438 \u0440\u0435\u0434\u0430\u043a\u0442\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u044f',
-  search: '\u041f\u043e\u0438\u0441\u043a',
-  loadError: '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0437\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044c \u0434\u0430\u043d\u043d\u044b\u0435 \u0434\u043b\u044f \u0432\u043a\u043b\u0430\u0434\u043a\u0438',
-  loading: '\u0417\u0430\u0433\u0440\u0443\u0436\u0430\u0435\u043c \u0434\u0430\u043d\u043d\u044b\u0435...',
-  edit: '\u0420\u0435\u0434\u0430\u043a\u0442\u0438\u0440\u043e\u0432\u0430\u0442\u044c',
-  block: '\u0417\u0430\u0431\u043b\u043e\u043a\u0438\u0440\u043e\u0432\u0430\u0442\u044c',
-  unblock: '\u0420\u0430\u0437\u0431\u043b\u043e\u043a\u0438\u0440\u043e\u0432\u0430\u0442\u044c',
-  empty: '\u041d\u0438\u0447\u0435\u0433\u043e \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u043e',
-  userBlockTitle: '\u0412\u044b \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0442\u0435\u043b\u044c\u043d\u043e \u0445\u043e\u0442\u0438\u0442\u0435 \u0437\u0430\u0431\u043b\u043e\u043a\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044f?',
-  userUnblockTitle: '\u0412\u044b \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0442\u0435\u043b\u044c\u043d\u043e \u0445\u043e\u0442\u0438\u0442\u0435 \u0440\u0430\u0437\u0431\u043b\u043e\u043a\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044f?',
-  gymBlockTitle: '\u0412\u044b \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0442\u0435\u043b\u044c\u043d\u043e \u0445\u043e\u0442\u0438\u0442\u0435 \u0437\u0430\u0431\u043b\u043e\u043a\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0437\u0430\u043b?',
-  gymUnblockTitle: '\u0412\u044b \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0442\u0435\u043b\u044c\u043d\u043e \u0445\u043e\u0442\u0438\u0442\u0435 \u0440\u0430\u0437\u0431\u043b\u043e\u043a\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0437\u0430\u043b?',
-  blockReason: '\u041f\u0440\u0438\u0447\u0438\u043d\u0430 \u0431\u043b\u043e\u043a\u0438\u0440\u043e\u0432\u043a\u0438',
-  yes: '\u0414\u0430',
-  no: '\u041d\u0435\u0442',
-  userBlockError: '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0438\u0437\u043c\u0435\u043d\u0438\u0442\u044c \u0441\u0442\u0430\u0442\u0443\u0441 \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044f',
-  gymBlockError: '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0438\u0437\u043c\u0435\u043d\u0438\u0442\u044c \u0441\u0442\u0430\u0442\u0443\u0441 \u0437\u0430\u043b\u0430',
-  requiredFields: '\u0417\u0430\u043f\u043e\u043b\u043d\u0438\u0442\u0435 \u043e\u0431\u044f\u0437\u0430\u0442\u0435\u043b\u044c\u043d\u044b\u0435 \u043f\u043e\u043b\u044f',
-  saveError: '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0441\u043e\u0445\u0440\u0430\u043d\u0438\u0442\u044c \u0438\u0437\u043c\u0435\u043d\u0435\u043d\u0438\u044f',
-  lastName: '\u0424\u0430\u043c\u0438\u043b\u0438\u044f',
-  firstName: '\u0418\u043c\u044f',
-  patronymic: '\u041e\u0442\u0447\u0435\u0441\u0442\u0432\u043e',
-  phone: '\u041d\u043e\u043c\u0435\u0440',
-  email: 'Email',
-  description: '\u041e\u043f\u0438\u0441\u0430\u043d\u0438\u0435',
-  password: '\u041f\u0430\u0440\u043e\u043b\u044c',
-  passwordPlaceholder: '\u041e\u0441\u0442\u0430\u0432\u044c\u0442\u0435 \u043f\u0443\u0441\u0442\u044b\u043c, \u0435\u0441\u043b\u0438 \u043d\u0435 \u043d\u0443\u0436\u043d\u043e \u043c\u0435\u043d\u044f\u0442\u044c',
-  save: '\u0421\u043e\u0445\u0440\u0430\u043d\u0438\u0442\u044c \u0438\u0437\u043c\u0435\u043d\u0435\u043d\u0438\u044f',
-}
-
-const editingTabs: Array<{ key: EditingTabKey; label: string }> = [
-  { key: 'users', label: text.users },
-  { key: 'trainers', label: text.trainers },
-  { key: 'gymAdmins', label: text.gymAdmins },
-  { key: 'gyms', label: text.gyms },
-]
-
-const roleByTab: Record<Exclude<EditingTabKey, 'gyms'>, Exclude<UserRole, 'SUPER_ADMIN'>> = {
-  users: 'CLIENT',
-  trainers: 'TRAINER',
-  gymAdmins: 'GYM_ADMIN',
-}
-
-function formatUserName(user: EditableUser): string {
-  return [user.last_name, user.first_name, user.patronymic ?? ''].join(' ').trim()
-}
-
-function isUserBlocked(user: EditableUser): boolean {
-  return user.blocked_at !== null && user.blocked_at !== undefined
-}
-
-function isGymBlocked(gym: EditableGym): boolean {
-  return gym.status === 'BLOCKED'
-}
-
-function resolveAvatarBaseUrl(): string {
-  return API_BASE_URL.replace(/\/api\/v1\/?$/, '/')
-}
-
-function readTrainerPassword(user: EditableUser): string {
-  return typeof user.trainer_profile?.password === 'string' ? user.trainer_profile.password : ''
-}
 
 export function EditingPanel() {
   const [activeTab, setActiveTab] = useState<EditingTabKey>('users')
@@ -105,6 +53,17 @@ export function EditingPanel() {
   const [isAvatarVisible, setIsAvatarVisible] = useState(true)
   const [editError, setEditError] = useState<string | null>(null)
   const [isEditSaving, setIsEditSaving] = useState(false)
+
+  const [editGymTarget, setEditGymTarget] = useState<EditableGym | null>(null)
+  const [editGymTitle, setEditGymTitle] = useState('')
+  const [editGymPhone, setEditGymPhone] = useState('')
+  const [editGymAddress, setEditGymAddress] = useState('')
+  const [editGymDescription, setEditGymDescription] = useState('')
+  const [editGymSubscriptionUntil, setEditGymSubscriptionUntil] = useState('')
+  const [editGymSchedule, setEditGymSchedule] = useState<Record<number, { id: string; open: string; close: string }>>({})
+  const [isGymAvatarVisible, setIsGymAvatarVisible] = useState(true)
+  const [editGymError, setEditGymError] = useState<string | null>(null)
+  const [isGymEditSaving, setIsGymEditSaving] = useState(false)
 
   const loadData = useCallback(async () => {
     setIsLoading(true)
@@ -249,6 +208,57 @@ export function EditingPanel() {
     setEditError(null)
   }
 
+  const openGymEditModal = (gym: EditableGym) => {
+    const scheduleByDay = gymWorkDays.reduce<Record<number, { id: string; open: string; close: string }>>((accumulator, day) => {
+      const scheduleItem = gym.schedule.find((item) => item.day_of_week === day.key)
+
+      accumulator[day.key] = {
+        id: scheduleItem?.id ?? `${gym.id}-${day.key}`,
+        open: toInputHour(scheduleItem?.open_time ?? null),
+        close: toInputHour(scheduleItem?.close_time ?? null),
+      }
+
+      return accumulator
+    }, {})
+
+    setEditGymTarget(gym)
+    setEditGymTitle(gym.title)
+    setEditGymPhone(gym.phone)
+    setEditGymAddress(gym.address)
+    setEditGymDescription(gym.description)
+    setEditGymSubscriptionUntil(gym.subscription_end_date ?? '')
+    setEditGymSchedule(scheduleByDay)
+    setIsGymAvatarVisible(true)
+    setEditGymError(null)
+  }
+
+  const closeGymEditModal = () => {
+    if (isGymEditSaving) return
+    setEditGymTarget(null)
+    setEditGymTitle('')
+    setEditGymPhone('')
+    setEditGymAddress('')
+    setEditGymDescription('')
+    setEditGymSubscriptionUntil('')
+    setEditGymSchedule({})
+    setIsGymAvatarVisible(true)
+    setEditGymError(null)
+  }
+
+  const updateGymScheduleField = (dayOfWeek: number, field: 'open' | 'close', value: string) => {
+    setEditGymSchedule((previous) => {
+      const current = previous[dayOfWeek] ?? { id: `${editGymTarget?.id ?? 'gym'}-${dayOfWeek}`, open: '', close: '' }
+
+      return {
+        ...previous,
+        [dayOfWeek]: {
+          ...current,
+          [field]: value,
+        },
+      }
+    })
+  }
+
   const submitEdit = async () => {
     if (!editTarget) return
     if (editLastName.trim().length === 0 || editFirstName.trim().length === 0 || editEmail.trim().length === 0) {
@@ -284,14 +294,88 @@ export function EditingPanel() {
     }
   }
 
+  const submitGymEdit = async () => {
+    if (!editGymTarget) return
+    if (
+      editGymTitle.trim().length === 0 ||
+      editGymPhone.trim().length === 0 ||
+      editGymAddress.trim().length === 0 ||
+      editGymDescription.trim().length === 0
+    ) {
+      setEditGymError(text.requiredFields)
+      return
+    }
+
+    if (editGymSubscriptionUntil.trim().length > 0 && Number.isNaN(Date.parse(editGymSubscriptionUntil))) {
+      setEditGymError(text.invalidDate)
+      return
+    }
+
+    const schedulePayload: Array<{ id: string; day_of_week: number; open_time: string | null; close_time: string | null }> = []
+
+    for (const day of gymWorkDays) {
+      const scheduleItem = editGymSchedule[day.key] ?? { id: `${editGymTarget.id}-${day.key}`, open: '', close: '' }
+      const openRaw = scheduleItem.open.trim()
+      const closeRaw = scheduleItem.close.trim()
+
+      if ((openRaw.length === 0 && closeRaw.length > 0) || (openRaw.length > 0 && closeRaw.length === 0)) {
+        setEditGymError(text.invalidSchedulePair)
+        return
+      }
+
+      const normalizedOpen = normalizeInputTime(openRaw)
+      const normalizedClose = normalizeInputTime(closeRaw)
+
+      if ((openRaw.length > 0 && normalizedOpen === null) || (closeRaw.length > 0 && normalizedClose === null)) {
+        setEditGymError(text.invalidTime)
+        return
+      }
+
+      schedulePayload.push({
+        id: scheduleItem.id,
+        day_of_week: day.key,
+        open_time: normalizedOpen,
+        close_time: normalizedClose,
+      })
+    }
+
+    setEditGymError(null)
+    setIsGymEditSaving(true)
+
+    try {
+      await updateGymById(editGymTarget.id, {
+        title: editGymTitle.trim(),
+        address: editGymAddress.trim(),
+        description: editGymDescription.trim(),
+        phone: editGymPhone.trim(),
+        schedule: schedulePayload,
+        subscription: editGymSubscriptionUntil.trim().length > 0 ? { end_date: editGymSubscriptionUntil.trim() } : null,
+      })
+
+      closeGymEditModal()
+      await loadData()
+    } catch {
+      setEditGymError(text.saveError)
+    } finally {
+      setIsGymEditSaving(false)
+    }
+  }
+
   const isTrainerEditing = editTarget?.role === 'TRAINER'
   const avatarUrl = editTarget ? `${resolveAvatarBaseUrl()}avatars/${editTarget.id}.jpg` : ''
+  const gymAvatarUrl = editGymTarget ? `${resolveAvatarBaseUrl()}gyms/${editGymTarget.id}.jpg` : ''
 
   return (
     <div className={styles.wrapper}>
       <h2 className={styles.title}>{text.editing}</h2>
 
-      <TabNav tabs={editingTabs} activeTab={activeTab} onChange={handleTabChange} ariaLabel={text.tabsAria} />
+      <TabNav
+        tabs={editingTabs}
+        activeTab={activeTab}
+        onChange={handleTabChange}
+        ariaLabel={text.tabsAria}
+        preservePageScrollOnChange
+      />
 
       <div className={styles.searchRow}>
         <input
@@ -307,216 +391,118 @@ export function EditingPanel() {
       {error ? <p className={styles.error}>{error}</p> : null}
       {actionError ? <p className={styles.error}>{actionError}</p> : null}
 
-      <div className={styles.listArea}>
-        {isLoading ? <p className={styles.info}>{text.loading}</p> : null}
+      <EditingEntitiesList
+        activeTab={activeTab}
+        isLoading={isLoading}
+        filteredUsers={filteredUsers}
+        filteredGyms={filteredGyms}
+        pendingActionId={pendingActionId}
+        text={text}
+        onOpenEditUser={openEditModal}
+        onToggleUserBlock={handleToggleUserBlock}
+        onOpenEditGym={openGymEditModal}
+        onToggleGymBlock={handleToggleGymBlock}
+      />
 
-        {!isLoading && activeTab !== 'gyms'
-          ? filteredUsers.map((user) => {
-              const blocked = isUserBlocked(user)
-              const isPending = pendingActionId === user.id
+      <ConfirmActionModal
+        isOpen={Boolean(userActionTarget && userActionMode)}
+        title={userActionMode === 'block' ? text.userBlockTitle : text.userUnblockTitle}
+        showReason={userActionMode === 'block'}
+        reason={blockComment}
+        reasonPlaceholder={text.blockReason}
+        isPending={Boolean(userActionTarget && pendingActionId === userActionTarget.id)}
+        isConfirmDisabled={
+          Boolean(userActionTarget && pendingActionId === userActionTarget.id) ||
+          (userActionMode === 'block' && blockComment.trim().length === 0)
+        }
+        error={actionError}
+        yesLabel={text.yes}
+        noLabel={text.no}
+        onReasonChange={setBlockComment}
+        onConfirm={() => {
+          void submitUserAction()
+        }}
+        onClose={closeUserActionModal}
+      />
 
-              return (
-                <div key={user.id} className={styles.item}>
-                  <p className={styles.itemText}>{formatUserName(user)}</p>
+      <ConfirmActionModal
+        isOpen={Boolean(gymActionTarget && gymActionMode)}
+        title={gymActionMode === 'block' ? text.gymBlockTitle : text.gymUnblockTitle}
+        showReason={gymActionMode === 'block'}
+        reason={gymBlockComment}
+        reasonPlaceholder={text.blockReason}
+        isPending={Boolean(gymActionTarget && pendingActionId === gymActionTarget.id)}
+        isConfirmDisabled={
+          Boolean(gymActionTarget && pendingActionId === gymActionTarget.id) ||
+          (gymActionMode === 'block' && gymBlockComment.trim().length === 0)
+        }
+        error={actionError}
+        yesLabel={text.yes}
+        noLabel={text.no}
+        onReasonChange={setGymBlockComment}
+        onConfirm={() => {
+          void submitGymAction()
+        }}
+        onClose={closeGymActionModal}
+      />
 
-                  <div className={styles.actions}>
-                    <button type="button" className={styles.editButton} onClick={() => openEditModal(user)}>
-                      {text.edit}
-                    </button>
-                    <button
-                      type="button"
-                      className={`${styles.blockButton} ${blocked ? styles.unblockButton : ''}`}
-                      onClick={() => {
-                        handleToggleUserBlock(user)
-                      }}
-                      disabled={isPending}
-                    >
-                      {blocked ? text.unblock : text.block}
-                    </button>
-                  </div>
-                </div>
-              )
-            })
-          : null}
+      <GymEditModal
+        isOpen={Boolean(editGymTarget)}
+        isAvatarVisible={isGymAvatarVisible}
+        avatarUrl={gymAvatarUrl}
+        title={editGymTitle}
+        phone={editGymPhone}
+        address={editGymAddress}
+        description={editGymDescription}
+        subscriptionUntil={editGymSubscriptionUntil}
+        schedule={editGymSchedule}
+        workDays={gymWorkDays}
+        isSaving={isGymEditSaving}
+        error={editGymError}
+        text={text}
+        onTitleChange={setEditGymTitle}
+        onPhoneChange={setEditGymPhone}
+        onAddressChange={setEditGymAddress}
+        onDescriptionChange={setEditGymDescription}
+        onSubscriptionUntilChange={setEditGymSubscriptionUntil}
+        onScheduleChange={updateGymScheduleField}
+        onAvatarError={() => setIsGymAvatarVisible(false)}
+        onSubmit={() => {
+          void submitGymEdit()
+        }}
+        onClose={closeGymEditModal}
+      />
 
-        {!isLoading && activeTab === 'gyms'
-          ? filteredGyms.map((gym) => {
-              const blocked = isGymBlocked(gym)
-              const isPending = pendingActionId === gym.id
-
-              return (
-                <div key={gym.id} className={styles.item}>
-                  <p className={styles.itemText}>
-                    {gym.title} - {gym.phone}
-                  </p>
-
-                  <div className={styles.actions}>
-                    <button type="button" className={styles.editButton}>
-                      {text.edit}
-                    </button>
-                    <button
-                      type="button"
-                      className={`${styles.blockButton} ${blocked ? styles.unblockButton : ''}`}
-                      onClick={() => {
-                        handleToggleGymBlock(gym)
-                      }}
-                      disabled={isPending}
-                    >
-                      {blocked ? text.unblock : text.block}
-                    </button>
-                  </div>
-                </div>
-              )
-            })
-          : null}
-
-        {!isLoading && activeTab !== 'gyms' && filteredUsers.length === 0 ? <p className={styles.info}>{text.empty}</p> : null}
-        {!isLoading && activeTab === 'gyms' && filteredGyms.length === 0 ? <p className={styles.info}>{text.empty}</p> : null}
-      </div>
-
-      {userActionTarget && userActionMode ? (
-        <div className={styles.modalOverlay} role="presentation" onClick={closeUserActionModal}>
-          <div className={styles.modalCard} role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
-            <h3 className={styles.modalTitle}>{userActionMode === 'block' ? text.userBlockTitle : text.userUnblockTitle}</h3>
-
-            {userActionMode === 'block' ? (
-              <textarea
-                className={styles.modalTextarea}
-                placeholder={text.blockReason}
-                value={blockComment}
-                onChange={(event) => setBlockComment(event.target.value)}
-                disabled={pendingActionId === userActionTarget.id}
-              />
-            ) : null}
-
-            <div className={styles.modalActions}>
-              <button
-                type="button"
-                className={styles.modalButton}
-                onClick={() => {
-                  void submitUserAction()
-                }}
-                disabled={pendingActionId === userActionTarget.id || (userActionMode === 'block' && blockComment.trim().length === 0)}
-              >
-                {text.yes}
-              </button>
-              <button
-                type="button"
-                className={styles.modalButton}
-                onClick={closeUserActionModal}
-                disabled={pendingActionId === userActionTarget.id}
-              >
-                {text.no}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {gymActionTarget && gymActionMode ? (
-        <div className={styles.modalOverlay} role="presentation" onClick={closeGymActionModal}>
-          <div className={styles.modalCard} role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
-            <h3 className={styles.modalTitle}>{gymActionMode === 'block' ? text.gymBlockTitle : text.gymUnblockTitle}</h3>
-
-            {gymActionMode === 'block' ? (
-              <textarea
-                className={styles.modalTextarea}
-                placeholder={text.blockReason}
-                value={gymBlockComment}
-                onChange={(event) => setGymBlockComment(event.target.value)}
-                disabled={pendingActionId === gymActionTarget.id}
-              />
-            ) : null}
-
-            <div className={styles.modalActions}>
-              <button
-                type="button"
-                className={styles.modalButton}
-                onClick={() => {
-                  void submitGymAction()
-                }}
-                disabled={pendingActionId === gymActionTarget.id || (gymActionMode === 'block' && gymBlockComment.trim().length === 0)}
-              >
-                {text.yes}
-              </button>
-              <button
-                type="button"
-                className={styles.modalButton}
-                onClick={closeGymActionModal}
-                disabled={pendingActionId === gymActionTarget.id}
-              >
-                {text.no}
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {editTarget ? (
-        <div className={styles.modalOverlay} role="presentation" onClick={closeEditModal}>
-          <div className={styles.editModalCard} role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
-            {isTrainerEditing && isAvatarVisible ? (
-              <div className={styles.avatarBox}>
-                <img src={avatarUrl} alt="" className={styles.avatarImage} onError={() => setIsAvatarVisible(false)} />
-              </div>
-            ) : null}
-
-            <label className={styles.editLabel}>
-              {text.lastName}
-              <input type="text" className={styles.editInput} value={editLastName} onChange={(event) => setEditLastName(event.target.value)} disabled={isEditSaving} />
-            </label>
-
-            <label className={styles.editLabel}>
-              {text.firstName}
-              <input type="text" className={styles.editInput} value={editFirstName} onChange={(event) => setEditFirstName(event.target.value)} disabled={isEditSaving} />
-            </label>
-
-            <label className={styles.editLabel}>
-              {text.patronymic}
-              <input type="text" className={styles.editInput} value={editPatronymic} onChange={(event) => setEditPatronymic(event.target.value)} disabled={isEditSaving} />
-            </label>
-
-            {isTrainerEditing ? (
-              <label className={styles.editLabel}>
-                {text.phone}
-                <input type="text" className={styles.editInput} value={editPhone} onChange={(event) => setEditPhone(event.target.value)} disabled={isEditSaving} />
-              </label>
-            ) : null}
-
-            <label className={styles.editLabel}>
-              {text.email}
-              <input type="email" className={styles.editInput} value={editEmail} onChange={(event) => setEditEmail(event.target.value)} disabled={isEditSaving} />
-            </label>
-
-            {isTrainerEditing ? (
-              <label className={styles.editLabel}>
-                {text.description}
-                <textarea className={styles.editTextarea} value={editDescription} onChange={(event) => setEditDescription(event.target.value)} disabled={isEditSaving} />
-              </label>
-            ) : null}
-
-            {isTrainerEditing ? (
-              <label className={styles.editLabel}>
-                {text.password}
-                <input
-                  type="text"
-                  className={styles.editInput}
-                  value={editPassword}
-                  onChange={(event) => setEditPassword(event.target.value)}
-                  disabled={isEditSaving}
-                  placeholder={text.passwordPlaceholder}
-                />
-              </label>
-            ) : null}
-
-            {editError ? <p className={styles.error}>{editError}</p> : null}
-
-            <button type="button" className={styles.saveEditButton} onClick={() => { void submitEdit() }} disabled={isEditSaving}>
-              {text.save}
-            </button>
-          </div>
-        </div>
-      ) : null}
+      <UserEditModal
+        isOpen={Boolean(editTarget)}
+        isTrainerEditing={isTrainerEditing}
+        isAvatarVisible={isAvatarVisible}
+        avatarUrl={avatarUrl}
+        lastName={editLastName}
+        firstName={editFirstName}
+        patronymic={editPatronymic}
+        phone={editPhone}
+        email={editEmail}
+        description={editDescription}
+        password={editPassword}
+        isSaving={isEditSaving}
+        error={editError}
+        text={text}
+        onLastNameChange={setEditLastName}
+        onFirstNameChange={setEditFirstName}
+        onPatronymicChange={setEditPatronymic}
+        onPhoneChange={setEditPhone}
+        onEmailChange={setEditEmail}
+        onDescriptionChange={setEditDescription}
+        onPasswordChange={setEditPassword}
+        onAvatarError={() => setIsAvatarVisible(false)}
+        onSubmit={() => {
+          void submitEdit()
+        }}
+        onClose={closeEditModal}
+      />
     </div>
   )
 }
+
+

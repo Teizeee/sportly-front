@@ -10,9 +10,33 @@ type TabNavProps<T extends string> = {
   activeTab: T
   onChange: (tab: T) => void
   ariaLabel: string
+  preservePageScrollOnChange?: boolean
 }
 
-export function TabNav<T extends string>({ tabs, activeTab, onChange, ariaLabel }: TabNavProps<T>) {
+export function TabNav<T extends string>({
+  tabs,
+  activeTab,
+  onChange,
+  ariaLabel,
+  preservePageScrollOnChange = false,
+}: TabNavProps<T>) {
+  const handleTabClick = (tab: T) => {
+    if (tab === activeTab) {
+      return
+    }
+
+    const previousScrollY = preservePageScrollOnChange ? window.scrollY : null
+    onChange(tab)
+
+    if (previousScrollY !== null) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          window.scrollTo({ top: previousScrollY, behavior: 'auto' })
+        })
+      })
+    }
+  }
+
   return (
     <nav className={styles.tabs} aria-label={ariaLabel}>
       {tabs.map((tab) => (
@@ -20,7 +44,7 @@ export function TabNav<T extends string>({ tabs, activeTab, onChange, ariaLabel 
           key={tab.key}
           type="button"
           className={`${styles.tabButton} ${activeTab === tab.key ? styles.active : ''}`}
-          onClick={() => onChange(tab.key)}
+          onClick={() => handleTabClick(tab.key)}
         >
           {tab.label}
         </button>
@@ -28,4 +52,3 @@ export function TabNav<T extends string>({ tabs, activeTab, onChange, ariaLabel 
     </nav>
   )
 }
-

@@ -4,235 +4,25 @@ import type {
   CountPayload,
   EditableGym,
   EditableUser,
+  GymReviewAdmin,
   GymApplication,
   PlatformSubscription,
   SubscriptionText,
+  TrainerReviewAdmin,
   UserRole,
   UsersCountPayload,
 } from '@entities/admin'
-
-function extractCount(payload: CountPayload): number {
-  if (typeof payload === 'number' && Number.isFinite(payload)) {
-    return payload
-  }
-
-  if (payload && typeof payload === 'object') {
-    const possible = [
-      payload.count,
-      payload.total,
-      payload.value,
-      payload.users_count,
-      payload.gyms_count,
-    ].find((value) => typeof value === 'number' && Number.isFinite(value))
-
-    if (typeof possible === 'number') {
-      return possible
-    }
-  }
-
-  return 0
-}
-
-function getFiniteNumber(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null
-}
-
-function readFirstNumber(source: Record<string, unknown>, keys: string[]): number | null {
-  for (const key of keys) {
-    const value = getFiniteNumber(source[key])
-
-    if (value !== null) {
-      return value
-    }
-  }
-
-  return null
-}
-
-function extractUsersStats(payload: UsersCountPayload): AdminUsersStats {
-  if (!payload || typeof payload !== 'object') {
-    const total = extractCount(payload as CountPayload)
-    return { total, admins: 0, trainers: 0, clients: 0 }
-  }
-
-  const source = payload as Record<string, unknown>
-  const rolesSourceRaw = source.by_role ?? source.roles ?? source.role_counts
-  const rolesSource =
-    rolesSourceRaw && typeof rolesSourceRaw === 'object'
-      ? (rolesSourceRaw as Record<string, unknown>)
-      : ({} as Record<string, unknown>)
-
-  const admins =
-    readFirstNumber(source, ['admins', 'admins_count', 'admin_count']) ??
-    (getFiniteNumber(rolesSource.SUPER_ADMIN) ?? 0) +
-      (getFiniteNumber(rolesSource.GYM_ADMIN) ?? 0) +
-      (readFirstNumber(source, ['super_admins', 'super_admins_count']) ?? 0) +
-      (readFirstNumber(source, ['gym_admins', 'gym_admins_count']) ?? 0)
-
-  const trainers =
-    readFirstNumber(source, ['trainers', 'trainers_count', 'trainer_count']) ??
-    (getFiniteNumber(rolesSource.TRAINER) ?? 0)
-
-  const clients =
-    readFirstNumber(source, ['clients', 'clients_count', 'client_count']) ??
-    (getFiniteNumber(rolesSource.CLIENT) ?? 0)
-
-  const calculatedTotal = admins + trainers + clients
-  const total =
-    readFirstNumber(source, ['count', 'total', 'value', 'users_count', 'usersCount']) ?? calculatedTotal
-
-  return { total, admins, trainers, clients }
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === 'object' ? (value as Record<string, unknown>) : null
-}
-
-function extractArrayPayload(payload: unknown): unknown[] {
-  if (Array.isArray(payload)) {
-    return payload
-  }
-
-  const source = asRecord(payload)
-
-  if (!source) {
-    return []
-  }
-
-  const nested = source.items ?? source.results ?? source.data ?? source.subscriptions
-
-  return Array.isArray(nested) ? nested : []
-}
-
-function toPlatformSubscription(raw: unknown): PlatformSubscription | null {
-  const source = asRecord(raw)
-
-  if (!source) {
-    return null
-  }
-
-  const id = typeof source.id === 'string' ? source.id : null
-  const value = getFiniteNumber(source.value)
-  const description = typeof source.description === 'string' ? source.description : null
-
-  if (!id || value === null || !description || description.length === 0) {
-    return null
-  }
-
-  return {
-    id,
-    value,
-    description,
-  }
-}
-
-function toSubscriptionText(raw: unknown): SubscriptionText | null {
-  const baseSource = asRecord(raw)
-  const source = asRecord(baseSource?.data) ?? baseSource
-
-  if (!source) {
-    return null
-  }
-
-  const id = typeof source.id === 'string' || typeof source.id === 'number' ? String(source.id) : null
-  const description = typeof source.description === 'string' ? source.description : null
-
-  if (!id || description === null) {
-    return null
-  }
-
-  return { id, description }
-}
-
-function toEditableUser(raw: unknown): EditableUser | null {
-  const source = asRecord(raw)
-
-  if (!source) {
-    return null
-  }
-
-  const id = typeof source.id === 'string' ? source.id : null
-  const firstName = typeof source.first_name === 'string' ? source.first_name : null
-  const lastName = typeof source.last_name === 'string' ? source.last_name : null
-  const email = typeof source.email === 'string' ? source.email : null
-  const patronymic = typeof source.patronymic === 'string' || source.patronymic === null ? source.patronymic : null
-  const birthDate = typeof source.birth_date === 'string' || source.birth_date === null ? source.birth_date : null
-  const blockedAt = typeof source.blocked_at === 'string' || source.blocked_at === null ? source.blocked_at : null
-  const role = source.role === 'CLIENT' || source.role === 'TRAINER' || source.role === 'GYM_ADMIN' || source.role === 'SUPER_ADMIN'
-    ? source.role
-    : 'CLIENT'
-  const trainerProfileRaw = asRecord(source.trainer_profile)
-  const trainerProfileId = typeof trainerProfileRaw?.id === 'string' ? trainerProfileRaw.id : null
-  const trainerProfileUserId = typeof trainerProfileRaw?.user_id === 'string' ? trainerProfileRaw.user_id : null
-  const trainerProfileGymId = typeof trainerProfileRaw?.gym_id === 'string' ? trainerProfileRaw.gym_id : null
-  const trainerProfilePhone = typeof trainerProfileRaw?.phone === 'string' ? trainerProfileRaw.phone : null
-  const trainerProfileDescription = typeof trainerProfileRaw?.description === 'string' ? trainerProfileRaw.description : null
-  const trainerProfilePassword =
-    typeof trainerProfileRaw?.password === 'string' || trainerProfileRaw?.password === null
-      ? trainerProfileRaw.password
-      : null
-
-  if (!id || !firstName || !lastName || !email) {
-    return null
-  }
-
-  return {
-    id,
-    first_name: firstName,
-    last_name: lastName,
-    email,
-    patronymic,
-    birth_date: birthDate,
-    role,
-    trainer_profile:
-      trainerProfileId && trainerProfileUserId && trainerProfileGymId && trainerProfilePhone && trainerProfileDescription
-        ? {
-            id: trainerProfileId,
-            user_id: trainerProfileUserId,
-            gym_id: trainerProfileGymId,
-            phone: trainerProfilePhone,
-            description: trainerProfileDescription,
-            password: trainerProfilePassword,
-          }
-        : null,
-    blocked_at: blockedAt,
-  }
-}
-
-function toEditableGym(raw: unknown): EditableGym | null {
-  const source = asRecord(raw)
-
-  if (!source) {
-    return null
-  }
-
-  const id = typeof source.id === 'string' ? source.id : null
-  const gymApplication = asRecord(source.gym_application)
-  const title =
-    typeof source.title === 'string'
-      ? source.title
-      : typeof gymApplication?.title === 'string'
-        ? gymApplication.title
-        : null
-  const phone =
-    typeof source.phone === 'string'
-      ? source.phone
-      : typeof gymApplication?.phone === 'string'
-        ? gymApplication.phone
-        : null
-  const status = source.status === 'ACTIVE' || source.status === 'BLOCKED' ? source.status : undefined
-
-  if (!id || !title || !phone) {
-    return null
-  }
-
-  return {
-    id,
-    title,
-    phone,
-    status,
-  }
-}
+import {
+  extractArrayPayload,
+  extractCount,
+  extractUsersStats,
+  toEditableGym,
+  toEditableUser,
+  toGymReviewAdmin,
+  toPlatformSubscription,
+  toSubscriptionText,
+  toTrainerReviewAdmin,
+} from './adminApiMappers'
 
 export async function fetchGymsCount(): Promise<number> {
   const payload = await httpClient.request<CountPayload>('/gyms/count')
@@ -294,6 +84,34 @@ export async function updateSubscriptionText(id: string, description: string): P
   })
 }
 
+export async function fetchGymReviews(): Promise<GymReviewAdmin[]> {
+  const payload = await httpClient.request<unknown>('/admin/reviews/gyms')
+
+  return extractArrayPayload(payload)
+    .map(toGymReviewAdmin)
+    .filter((review): review is GymReviewAdmin => review !== null)
+}
+
+export async function fetchTrainerReviews(): Promise<TrainerReviewAdmin[]> {
+  const payload = await httpClient.request<unknown>('/admin/reviews/trainers')
+
+  return extractArrayPayload(payload)
+    .map(toTrainerReviewAdmin)
+    .filter((review): review is TrainerReviewAdmin => review !== null)
+}
+
+export async function deleteGymReview(reviewId: string): Promise<void> {
+  await httpClient.request(`/admin/reviews/gyms/${reviewId}`, {
+    method: 'DELETE',
+  })
+}
+
+export async function deleteTrainerReview(reviewId: string): Promise<void> {
+  await httpClient.request(`/admin/reviews/trainers/${reviewId}`, {
+    method: 'DELETE',
+  })
+}
+
 export async function fetchUsersByRole(role: Exclude<UserRole, 'SUPER_ADMIN'>): Promise<EditableUser[]> {
   const payload = await httpClient.request<unknown>(`/auth/users?role=${role}&include_blocked=True`)
 
@@ -329,7 +147,7 @@ export async function updateUserById(
 ): Promise<void> {
   const normalizedPayload = Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== undefined))
 
-  await httpClient.request(`/users/${userId}/`, {
+  await httpClient.request(`/auth/users/${userId}`, {
     method: 'PUT',
     body: normalizedPayload,
   })
@@ -353,5 +171,29 @@ export async function blockGym(gymId: string, comment: string): Promise<void> {
 export async function unblockGym(gymId: string): Promise<void> {
   await httpClient.request(`/gyms/${gymId}/unblock`, {
     method: 'POST',
+  })
+}
+
+export async function updateGymById(
+  gymId: string,
+  payload: {
+    title: string
+    address: string
+    description: string
+    phone: string
+    schedule: Array<{
+      id: string
+      day_of_week: number
+      open_time: string | null
+      close_time: string | null
+    }>
+    subscription: {
+      end_date: string
+    } | null
+  },
+): Promise<void> {
+  await httpClient.request(`/gyms/${gymId}`, {
+    method: 'PUT',
+    body: payload,
   })
 }

@@ -1,8 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { GymApplication, PlatformSubscription } from '@entities/admin'
 import { clearAccessToken } from '@shared/lib/auth/tokenStorage'
+import { useClickOutside } from '@shared/lib/dom/useClickOutside'
 import { DashboardHeader } from '@shared/ui/dashboard-header/DashboardHeader'
 import { DashboardShell } from '@shared/ui/dashboard-shell/DashboardShell'
 import { SectionCard } from '@shared/ui/section-card/SectionCard'
@@ -17,44 +17,15 @@ import {
   updateSubscriptionText,
 } from '../api/adminApi'
 import { adminTabs } from '../model/adminTabs'
+import { buildAdminStatsItems } from '../model/adminStatsItems'
 import type { TabKey } from '../model/types'
 import { useAdminDashboard } from '../model/useAdminDashboard'
-import { ApplicationsTable } from './components/ApplicationsTable'
+import { AdminApplicationsSection } from './components/AdminApplicationsSection'
+import { AdminModal } from './components/AdminModal'
 import { EditingPanel } from './components/EditingPanel'
+import { ReviewsPanel } from './components/ReviewsPanel'
+import { SubscriptionTextSection } from './components/SubscriptionTextSection'
 import styles from './AdminPage.module.css'
-
-type ModalLayer = 'base' | 'stacked'
-
-function Modal({
-  layer,
-  children,
-  onClose,
-  scrollable = true,
-  cardClassName,
-}: {
-  layer: ModalLayer
-  children: ReactNode
-  onClose: () => void
-  scrollable?: boolean
-  cardClassName?: string
-}) {
-  return (
-    <div
-      className={`${styles.modalOverlay} ${layer === 'stacked' ? styles.modalOverlayStacked : ''}`}
-      onClick={onClose}
-      role="presentation"
-    >
-      <div
-        className={`${styles.modalCard} ${scrollable ? styles.modalCardScrollable : styles.modalCardFloating} ${cardClassName ?? ''}`}
-        onClick={(event) => event.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-      >
-        {children}
-      </div>
-    </div>
-  )
-}
 
 export function AdminPage() {
   const navigate = useNavigate()
@@ -161,23 +132,11 @@ export function AdminPage() {
     await loadSubscriptions()
   }
 
-  useEffect(() => {
-    if (!isSubscriptionDropdownOpen) {
-      return
-    }
+  const closeSubscriptionDropdown = useCallback(() => {
+    setIsSubscriptionDropdownOpen(false)
+  }, [])
 
-    const handleOutsideClick = (event: MouseEvent) => {
-      if (!subscriptionDropdownRef.current?.contains(event.target as Node)) {
-        setIsSubscriptionDropdownOpen(false)
-      }
-    }
-
-    window.addEventListener('mousedown', handleOutsideClick)
-
-    return () => {
-      window.removeEventListener('mousedown', handleOutsideClick)
-    }
-  }, [isSubscriptionDropdownOpen])
+  useClickOutside(subscriptionDropdownRef, closeSubscriptionDropdown, isSubscriptionDropdownOpen)
 
   const openRejectModal = (application: GymApplication) => {
     setRejectTarget(application)
@@ -291,74 +250,45 @@ export function AdminPage() {
       <DashboardHeader title="Spotly" onLogout={handleLogout} />
 
       <StatsGrid
-        items={[
-          { label: 'Всего залов', value: stats.gymsCount },
-          {
-            label: 'Пользователи',
-            value: stats.users.total.toLocaleString('ru-RU'),
-            details: [
-              `Админы: ${stats.users.admins.toLocaleString('ru-RU')}`,
-              `Тренеры: ${stats.users.trainers.toLocaleString('ru-RU')}`,
-              `Клиенты: ${stats.users.clients.toLocaleString('ru-RU')}`,
-            ],
-          },
-          { label: 'Заявки', value: stats.applicationsCount },
-        ]}
+        items={buildAdminStatsItems(stats)}
       />
 
       <TabNav tabs={adminTabs} activeTab={activeTab} onChange={setActiveTab} ariaLabel="Вкладки суперадмина" />
 
       <SectionCard>
         {activeTab === 'applications' ? (
-          <>
-            <h2 className={styles.contentTitle}>Заявки на регистрацию</h2>
-            <ApplicationsTable
-              isLoading={isLoading}
-              error={error}
-              applications={applications}
-              onApplicationClick={(application) => {
-                void openDetailsModal(application)
-              }}
-              onApproveClick={(application) => {
-                void openApproveModal(application)
-              }}
-              onRejectClick={openRejectModal}
-            />
-          </>
+          <AdminApplicationsSection
+            isLoading={isLoading}
+            error={error}
+            applications={applications}
+            onApplicationClick={(application) => {
+              void openDetailsModal(application)
+            }}
+            onApproveClick={(application) => {
+              void openApproveModal(application)
+            }}
+            onRejectClick={openRejectModal}
+          />
         ) : activeTab === 'editing' ? (
           <EditingPanel />
+        ) : activeTab === 'reviews' ? (
+          <ReviewsPanel />
         ) : activeTab === 'subscriptions' ? (
-          <div className={styles.subscriptionContent}>
-            <textarea
-              className={styles.subscriptionTextarea}
-              value={subscriptionTextDraft}
-              onChange={(event) => {
-                setSubscriptionTextDraft(event.target.value)
-                if (subscriptionTextSuccess) {
-                  setSubscriptionTextSuccess(null)
-                }
-              }}
-              disabled={subscriptionTextLoading || subscriptionTextSaving}
-              placeholder="Введите текст подписки"
-            />
-
-            {subscriptionTextLoading ? <p className={styles.modalInfo}>Загружаем текст подписки...</p> : null}
-            {subscriptionTextError ? <p className={styles.modalError}>{subscriptionTextError}</p> : null}
-            {subscriptionTextSuccess ? <p className={styles.subscriptionSuccess}>{subscriptionTextSuccess}</p> : null}
-
-            <div className={styles.subscriptionActions}>
-              <button
-                type="button"
-                className={styles.subscriptionSaveButton}
-                onClick={() => {
-                  openSaveConfirmModal()
-                }}
-                disabled={subscriptionTextLoading || subscriptionTextSaving || !subscriptionTextId}
-              >
-                {subscriptionTextSaving ? 'Сохраняем...' : 'Сохранить'}
-              </button>
-            </div>
-          </div>
+          <SubscriptionTextSection
+            text={subscriptionTextDraft}
+            isLoading={subscriptionTextLoading}
+            isSaving={subscriptionTextSaving}
+            error={subscriptionTextError}
+            success={subscriptionTextSuccess}
+            canSave={!subscriptionTextLoading && !subscriptionTextSaving && Boolean(subscriptionTextId)}
+            onTextChange={(value) => {
+              setSubscriptionTextDraft(value)
+              if (subscriptionTextSuccess) {
+                setSubscriptionTextSuccess(null)
+              }
+            }}
+            onOpenSaveConfirm={openSaveConfirmModal}
+          />
         ) : (
           <p className={styles.sectionState}>
             Раздел «{adminTabs.find((tab) => tab.key === activeTab)?.label}» в разработке
@@ -367,7 +297,7 @@ export function AdminPage() {
       </SectionCard>
 
       {detailsApplication ? (
-        <Modal layer="base" onClose={closeDetailsModal} scrollable>
+        <AdminModal layer="base" onClose={closeDetailsModal} scrollable>
           <div className={styles.detailsContent}>
             <p className={styles.detailsField}>Название зала: {detailsApplication.title}</p>
             <p className={styles.detailsField}>Номер телефона зала: {detailsApplication.phone}</p>
@@ -406,11 +336,11 @@ export function AdminPage() {
               </button>
             </div>
           </div>
-        </Modal>
+        </AdminModal>
       ) : null}
 
       {approveTarget ? (
-        <Modal layer={detailsApplication ? 'stacked' : 'base'} onClose={closeApproveModal} scrollable={false}>
+        <AdminModal layer={detailsApplication ? 'stacked' : 'base'} onClose={closeApproveModal} scrollable={false}>
           <div className={styles.approveContent}>
             <h3 className={styles.modalTitle}>Выберите подписку</h3>
             <div className={styles.dropdown} ref={subscriptionDropdownRef}>
@@ -457,11 +387,11 @@ export function AdminPage() {
               {actionPending ? 'Отправляем...' : 'Одобрить'}
             </button>
           </div>
-        </Modal>
+        </AdminModal>
       ) : null}
 
       {rejectTarget ? (
-        <Modal layer={detailsApplication ? 'stacked' : 'base'} onClose={closeRejectModal} scrollable={false}>
+        <AdminModal layer={detailsApplication ? 'stacked' : 'base'} onClose={closeRejectModal} scrollable={false}>
           <div className={styles.rejectContent}>
             <h3 className={styles.modalTitle}>Вы действительно хотите отклонить заявку?</h3>
             <textarea
@@ -490,11 +420,11 @@ export function AdminPage() {
               </button>
             </div>
           </div>
-        </Modal>
+        </AdminModal>
       ) : null}
 
       {isSaveConfirmOpen ? (
-        <Modal
+        <AdminModal
           layer="base"
           onClose={closeSaveConfirmModal}
           scrollable={false}
@@ -525,7 +455,7 @@ export function AdminPage() {
               </button>
             </div>
           </div>
-        </Modal>
+        </AdminModal>
       ) : null}
     </DashboardShell>
   )

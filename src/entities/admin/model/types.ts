@@ -96,6 +96,15 @@ export type EditableGym = {
   id: string
   title: string
   phone: string
+  address: string
+  description: string
+  schedule: Array<{
+    id: string
+    day_of_week: number
+    open_time: string | null
+    close_time: string | null
+  }>
+  subscription_end_date: string | null
   status?: 'ACTIVE' | 'BLOCKED'
 }
 
@@ -103,4 +112,36 @@ export type AdminDashboardStats = {
   gymsCount: number
   users: AdminUsersStats
   applicationsCount: number
+}
+
+export type ReviewUserInfo = {
+  id: string
+  first_name: string
+  last_name: string
+  patronymic: string | null
+}
+
+export type ReviewGymInfo = {
+  id: string
+  title: string
+  address: string
+}
+
+export type GymReviewAdmin = {
+  id: string
+  rating: number
+  comment: string | null
+  created_at: string
+  gym: ReviewGymInfo
+  author: ReviewUserInfo
+}
+
+export type TrainerReviewAdmin = {
+  id: string
+  rating: number
+  comment: string | null
+  created_at: string
+  gym: ReviewGymInfo
+  trainer: ReviewUserInfo
+  author: ReviewUserInfo
 }

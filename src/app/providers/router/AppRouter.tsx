@@ -1,5 +1,5 @@
-﻿import type { ReactElement } from 'react'
-import { Navigate, createBrowserRouter } from 'react-router-dom'
+import type { ReactElement } from 'react'
+import { Navigate, RouterProvider, createBrowserRouter } from 'react-router-dom'
 import { LoginPage } from '@pages/login/ui/LoginPage'
 import { RegisterPage } from '@pages/register/ui/RegisterPage'
 import { AdminPage } from '@pages/admin/ui/AdminPage'
@@ -50,7 +50,7 @@ function FallbackRedirect() {
   return <Navigate to={getDefaultPrivatePath(getUserRole())} replace />
 }
 
-export const appRouter = createBrowserRouter([
+const appRouter = createBrowserRouter([
   {
     path: '/',
     element: (
@@ -88,3 +88,7 @@ export const appRouter = createBrowserRouter([
     element: <FallbackRedirect />,
   },
 ])
+
+export function AppRouter() {
+  return <RouterProvider router={appRouter} />
+}
