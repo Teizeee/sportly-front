@@ -2,6 +2,7 @@ import { httpClient } from '@shared/lib/http/httpClient'
 import type {
   CurrentGymAdmin,
   GymApplicationPayload,
+  GymTrainerListItem,
   GymTrainerOption,
   MembershipType,
   SubscriptionTextPayload,
@@ -213,35 +214,100 @@ export async function deleteGymMembership(membershipTypeId: string): Promise<voi
   })
 }
 
-function toGymTrainerOption(raw: unknown): GymTrainerOption | null {
+function toGymTrainer(raw: unknown): GymTrainerListItem | null {
   const source = asRecord(raw)
 
   if (!source) {
     return null
   }
 
+  const userId = typeof source.id === 'string' ? source.id : null
+  const email = typeof source.email === 'string' ? source.email.trim() : ''
   const firstName = typeof source.first_name === 'string' ? source.first_name.trim() : ''
   const lastName = typeof source.last_name === 'string' ? source.last_name.trim() : ''
-  const patronymic = typeof source.patronymic === 'string' ? source.patronymic.trim() : ''
+  const patronymic = typeof source.patronymic === 'string' ? source.patronymic.trim() : null
   const trainerProfile = asRecord(source.trainer_profile)
   const trainerId = typeof trainerProfile?.id === 'string' ? trainerProfile.id : null
+  const trainerPhone = typeof trainerProfile?.phone === 'string' ? trainerProfile.phone.trim() : ''
+  const trainerDescription = typeof trainerProfile?.description === 'string' ? trainerProfile.description.trim() : ''
+  const trainerPassword = typeof trainerProfile?.password === 'string' ? trainerProfile.password.trim() : ''
 
-  if (!trainerId || !firstName || !lastName) {
+  if (!userId || !trainerId || !firstName || !lastName || !email) {
     return null
   }
 
   return {
+    user_id: userId,
     trainer_id: trainerId,
-    label: [lastName, firstName, patronymic].filter((item) => item.length > 0).join(' '),
+    full_name: [firstName, lastName, patronymic].filter((item): item is string => typeof item === 'string' && item.length > 0).join(' '),
+    first_name: firstName,
+    last_name: lastName,
+    patronymic: patronymic && patronymic.length > 0 ? patronymic : null,
+    email,
+    phone: trainerPhone || null,
+    description: trainerDescription || null,
+    password: trainerPassword || null,
   }
 }
 
-export async function fetchGymTrainers(gymId: string): Promise<GymTrainerOption[]> {
+export async function fetchGymTrainerUsers(gymId: string): Promise<GymTrainerListItem[]> {
   const payload = await httpClient.request<unknown>(`/auth/users?gym_id=${encodeURIComponent(gymId)}&role=TRAINER`)
 
   return asArray(payload)
-    .map(toGymTrainerOption)
-    .filter((item): item is GymTrainerOption => item !== null)
+    .map(toGymTrainer)
+    .filter((item): item is GymTrainerListItem => item !== null)
+}
+
+export async function fetchGymTrainers(gymId: string): Promise<GymTrainerOption[]> {
+  const trainers = await fetchGymTrainerUsers(gymId)
+
+  return trainers.map((trainer) => ({
+    trainer_id: trainer.trainer_id,
+    label: trainer.full_name,
+  }))
+}
+
+export async function deleteGymUserAccount(userId: string): Promise<void> {
+  await httpClient.request(`/auth/users/${userId}`, {
+    method: 'DELETE',
+  })
+}
+
+export async function createGymTrainerUser(payload: {
+  email: string
+  first_name: string
+  last_name: string
+  patronymic: string
+  role: 'TRAINER'
+  password: string
+  phone: string
+  description: string
+  gym_id: string
+}): Promise<void> {
+  await httpClient.request('/auth/register', {
+    method: 'POST',
+    body: payload,
+  })
+}
+
+export async function updateGymUserById(
+  userId: string,
+  payload: {
+    last_name: string
+    first_name: string
+    patronymic: string | null
+    email: string
+    phone?: string | null
+    description?: string | null
+    password?: string | null
+  },
+): Promise<void> {
+  const normalizedPayload = Object.fromEntries(Object.entries(payload).filter(([, value]) => value !== undefined))
+
+  await httpClient.request(`/auth/users/${userId}`, {
+    method: 'PUT',
+    body: normalizedPayload,
+  })
 }
 
 export async function createGymTrainerPackage(payload: {

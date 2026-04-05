@@ -1,18 +1,25 @@
-import { useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { editingPanelText } from '@pages/admin/model/editingPanel.constants'
+import { ConfirmActionModal } from '@pages/admin/ui/components/ConfirmActionModal'
+import { UserEditModal } from '@pages/admin/ui/components/UserEditModal'
 import { useClickOutside } from '@shared/lib/dom/useClickOutside'
 import { useEscapeKey } from '@shared/lib/dom/useEscapeKey'
 import { ApiError } from '@shared/lib/http/ApiError'
 import {
+  createGymTrainerUser,
   createGymMembership,
   createGymTrainerPackage,
   deleteGymMembership,
   deleteGymTrainerPackage,
+  deleteGymUserAccount,
   fetchGymTrainers,
+  fetchGymTrainerUsers,
+  updateGymUserById,
   updateGymMembership,
   updateGymTrainerPackage,
 } from '../../api/gymDashboardApi'
 import { gymTabs } from '../../model/gymTabs'
-import type { GymTabKey, GymTrainerOption, MembershipType, TrainerPackage } from '../../model/types'
+import type { GymTabKey, GymTrainerListItem, GymTrainerOption, MembershipType, TrainerPackage } from '../../model/types'
 import styles from './GymTabPanel.module.css'
 
 type GymTabPanelProps = {
@@ -24,9 +31,11 @@ type GymTabPanelProps = {
   gymId: string | null
   onMembershipCreated: () => Promise<void>
   onTrainerPackageCreated: () => Promise<void>
+  onTrainerDeleted: () => Promise<void>
 }
 
 const membershipDurations = [1, 3, 6, 12] as const
+const noop = () => undefined
 
 type MembershipDuration = (typeof membershipDurations)[number]
 type ModalMode = 'create' | 'edit'
@@ -46,6 +55,16 @@ type TrainerPackageFormState = {
   description: string
 }
 
+type TrainerCreateFormState = {
+  last_name: string
+  first_name: string
+  patronymic: string
+  phone: string
+  email: string
+  description: string
+  password: string
+}
+
 const initialMembershipFormState: MembershipFormState = {
   name: '',
   price: '',
@@ -59,6 +78,16 @@ const initialTrainerPackageFormState: TrainerPackageFormState = {
   sessionCount: '',
   trainerId: '',
   description: '',
+}
+
+const initialTrainerCreateFormState: TrainerCreateFormState = {
+  last_name: '',
+  first_name: '',
+  patronymic: '',
+  phone: '',
+  email: '',
+  description: '',
+  password: '',
 }
 
 function normalizeDuration(months: number): MembershipDuration {
@@ -100,7 +129,7 @@ function resolveTrainerLabelForPackage(packageItem: TrainerPackage): string {
   const lastName = packageItem.trainer?.user?.last_name?.trim()
 
   if (firstName && lastName) {
-    return `${lastName} ${firstName}`
+    return `${firstName} ${lastName}`
   }
 
   return `Тренер ${packageItem.trainer_id.slice(0, 8)}`
@@ -150,6 +179,11 @@ function formatDurationLabel(months: MembershipDuration): string {
   return `${months} месяцев`
 }
 
+function normalizePhone(phone: string | null): string {
+  const trimmed = phone?.trim()
+  return trimmed && trimmed.length > 0 ? trimmed : '-'
+}
+
 export function GymTabPanel({
   activeTab,
   membershipTypes,
@@ -159,6 +193,7 @@ export function GymTabPanel({
   gymId,
   onMembershipCreated,
   onTrainerPackageCreated,
+  onTrainerDeleted,
 }: GymTabPanelProps) {
   const [membershipModalMode, setMembershipModalMode] = useState<ModalMode>('create')
   const [isMembershipModalOpen, setIsMembershipModalOpen] = useState(false)
@@ -181,6 +216,28 @@ export function GymTabPanel({
   const [trainerPackageForm, setTrainerPackageForm] = useState<TrainerPackageFormState>(initialTrainerPackageFormState)
   const [isTrainerDropdownOpen, setIsTrainerDropdownOpen] = useState(false)
   const trainerDropdownRef = useRef<HTMLDivElement | null>(null)
+
+  const [trainerList, setTrainerList] = useState<GymTrainerListItem[]>([])
+  const [isTrainerListLoading, setIsTrainerListLoading] = useState(false)
+  const [trainerListError, setTrainerListError] = useState<string | null>(null)
+  const [trainerSearch, setTrainerSearch] = useState('')
+  const [deletingTrainer, setDeletingTrainer] = useState<GymTrainerListItem | null>(null)
+  const [isDeletingTrainer, setIsDeletingTrainer] = useState(false)
+  const [trainerDeleteError, setTrainerDeleteError] = useState<string | null>(null)
+  const [editingTrainer, setEditingTrainer] = useState<GymTrainerListItem | null>(null)
+  const [editLastName, setEditLastName] = useState('')
+  const [editFirstName, setEditFirstName] = useState('')
+  const [editPatronymic, setEditPatronymic] = useState('')
+  const [editPhone, setEditPhone] = useState('')
+  const [editEmail, setEditEmail] = useState('')
+  const [editDescription, setEditDescription] = useState('')
+  const [editPassword, setEditPassword] = useState('')
+  const [editTrainerError, setEditTrainerError] = useState<string | null>(null)
+  const [isEditTrainerSaving, setIsEditTrainerSaving] = useState(false)
+  const [isCreateTrainerModalOpen, setIsCreateTrainerModalOpen] = useState(false)
+  const [isCreatingTrainer, setIsCreatingTrainer] = useState(false)
+  const [trainerCreateError, setTrainerCreateError] = useState<string | null>(null)
+  const [trainerCreateForm, setTrainerCreateForm] = useState<TrainerCreateFormState>(initialTrainerCreateFormState)
 
   const isMembershipBusy = isMembershipSubmitting || isMembershipDeleting
   const isPackageBusy = isPackageSubmitting || isPackageDeleting
@@ -213,14 +270,100 @@ export function GymTabPanel({
     setTrainerPackageForm(initialTrainerPackageFormState)
   }
 
+  const closeDeleteTrainerModal = () => {
+    if (isDeletingTrainer) {
+      return
+    }
+
+    setDeletingTrainer(null)
+    setTrainerDeleteError(null)
+  }
+
+  const openEditTrainerModal = (trainer: GymTrainerListItem) => {
+    setEditingTrainer(trainer)
+    setEditLastName(trainer.last_name)
+    setEditFirstName(trainer.first_name)
+    setEditPatronymic(trainer.patronymic ?? '')
+    setEditPhone(trainer.phone ?? '')
+    setEditEmail(trainer.email)
+    setEditDescription(trainer.description ?? '')
+    setEditPassword(trainer.password ?? '')
+    setEditTrainerError(null)
+  }
+
+  const closeEditTrainerModal = () => {
+    if (isEditTrainerSaving) {
+      return
+    }
+
+    setEditingTrainer(null)
+    setEditLastName('')
+    setEditFirstName('')
+    setEditPatronymic('')
+    setEditPhone('')
+    setEditEmail('')
+    setEditDescription('')
+    setEditPassword('')
+    setEditTrainerError(null)
+  }
+
+  const closeCreateTrainerModal = () => {
+    if (isCreatingTrainer) {
+      return
+    }
+
+    setIsCreateTrainerModalOpen(false)
+    setTrainerCreateError(null)
+    setTrainerCreateForm(initialTrainerCreateFormState)
+  }
+
+  const loadTrainerList = async () => {
+    if (!gymId) {
+      setTrainerList([])
+      setTrainerListError('Не удалось определить зал для загрузки тренеров')
+      return
+    }
+
+    setIsTrainerListLoading(true)
+    setTrainerListError(null)
+
+    try {
+      const list = await fetchGymTrainerUsers(gymId)
+      setTrainerList(list)
+    } catch {
+      setTrainerList([])
+      setTrainerListError('Не удалось загрузить список тренеров')
+    } finally {
+      setIsTrainerListLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab !== 'trainers') {
+      return
+    }
+
+    void loadTrainerList()
+  }, [activeTab, gymId])
+
   useEscapeKey(() => {
+    if (editingTrainer) {
+      closeEditTrainerModal()
+      return
+    }
+
+    if (isCreateTrainerModalOpen) {
+      closeCreateTrainerModal()
+      return
+    }
+
     if (isTrainerPackageModalOpen) {
       closeTrainerPackageModal()
       return
     }
 
     closeMembershipModal()
-  }, isMembershipModalOpen || isTrainerPackageModalOpen)
+  }, isMembershipModalOpen || isTrainerPackageModalOpen || isCreateTrainerModalOpen || Boolean(editingTrainer))
 
   useClickOutside(durationDropdownRef, () => setIsDurationDropdownOpen(false), isDurationDropdownOpen)
   useClickOutside(trainerDropdownRef, () => setIsTrainerDropdownOpen(false), isTrainerDropdownOpen)
@@ -236,6 +379,14 @@ export function GymTabPanel({
   const handleTrainerPackageFieldChange = (field: keyof TrainerPackageFormState, value: string) => {
     setTrainerPackageError(null)
     setTrainerPackageForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }))
+  }
+
+  const handleCreateTrainerFieldChange = (field: keyof TrainerCreateFormState, value: string) => {
+    setTrainerCreateError(null)
+    setTrainerCreateForm((prev) => ({
       ...prev,
       [field]: value,
     }))
@@ -273,6 +424,12 @@ export function GymTabPanel({
     } finally {
       setIsLoadingTrainers(false)
     }
+  }
+
+  const openCreateTrainerModal = () => {
+    setTrainerCreateError(null)
+    setTrainerCreateForm(initialTrainerCreateFormState)
+    setIsCreateTrainerModalOpen(true)
   }
 
   const openCreateMembershipModal = () => {
@@ -450,6 +607,253 @@ export function GymTabPanel({
     }
   }
 
+  const confirmDeleteTrainer = async () => {
+    if (!deletingTrainer || isDeletingTrainer) {
+      return
+    }
+
+    setTrainerDeleteError(null)
+    setIsDeletingTrainer(true)
+
+    try {
+      await deleteGymUserAccount(deletingTrainer.user_id)
+      await onTrainerDeleted()
+      await loadTrainerList()
+      setDeletingTrainer(null)
+    } catch {
+      setTrainerDeleteError('Не удалось удалить учетную запись тренера')
+    } finally {
+      setIsDeletingTrainer(false)
+    }
+  }
+
+  const submitCreateTrainer = async () => {
+    if (!gymId || isCreatingTrainer) {
+      return
+    }
+
+    const payload = {
+      last_name: trainerCreateForm.last_name.trim(),
+      first_name: trainerCreateForm.first_name.trim(),
+      patronymic: trainerCreateForm.patronymic.trim(),
+      phone: trainerCreateForm.phone.trim(),
+      email: trainerCreateForm.email.trim(),
+      description: trainerCreateForm.description.trim(),
+      password: trainerCreateForm.password.trim(),
+      role: 'TRAINER' as const,
+      gym_id: gymId,
+    }
+
+    if (!payload.last_name || !payload.first_name || !payload.phone || !payload.email || !payload.password) {
+      setTrainerCreateError('Заполните обязательные поля: фамилия, имя, номер, email, пароль')
+      return
+    }
+
+    setTrainerCreateError(null)
+    setIsCreatingTrainer(true)
+
+    try {
+      await createGymTrainerUser(payload)
+      await onTrainerDeleted()
+      await loadTrainerList()
+      closeCreateTrainerModal()
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 422) {
+        setTrainerCreateError('Ошибка валидации. Проверьте значения полей')
+      } else {
+        setTrainerCreateError('Не удалось создать учетную запись тренера')
+      }
+    } finally {
+      setIsCreatingTrainer(false)
+    }
+  }
+
+  const submitEditTrainer = async () => {
+    if (!editingTrainer || isEditTrainerSaving) {
+      return
+    }
+
+    if (editLastName.trim().length === 0 || editFirstName.trim().length === 0 || editEmail.trim().length === 0) {
+      setEditTrainerError(editingPanelText.requiredFields)
+      return
+    }
+
+    setEditTrainerError(null)
+    setIsEditTrainerSaving(true)
+
+    try {
+      await updateGymUserById(editingTrainer.user_id, {
+        last_name: editLastName.trim(),
+        first_name: editFirstName.trim(),
+        patronymic: editPatronymic.trim().length > 0 ? editPatronymic.trim() : null,
+        email: editEmail.trim(),
+        phone: editPhone.trim().length > 0 ? editPhone.trim() : null,
+        description: editDescription.trim().length > 0 ? editDescription.trim() : null,
+        password: editPassword.trim().length > 0 ? editPassword.trim() : null,
+      })
+
+      await onTrainerDeleted()
+      await loadTrainerList()
+      closeEditTrainerModal()
+    } catch {
+      setEditTrainerError(editingPanelText.saveError)
+    } finally {
+      setIsEditTrainerSaving(false)
+    }
+  }
+
+  const requestDeleteFromEditModal = () => {
+    if (!editingTrainer) {
+      return
+    }
+
+    setDeletingTrainer(editingTrainer)
+    closeEditTrainerModal()
+  }
+
+  const filteredTrainers = useMemo(() => {
+    const query = trainerSearch.trim().toLowerCase()
+
+    if (!query) {
+      return trainerList
+    }
+
+    return trainerList.filter((trainer) => {
+      const fullName = trainer.full_name.toLowerCase()
+      const phone = normalizePhone(trainer.phone).toLowerCase()
+
+      return fullName.includes(query) || phone.includes(query)
+    })
+  }, [trainerList, trainerSearch])
+
+  if (activeTab === 'trainers') {
+    return (
+      <section className={styles.trainersSection}>
+        <div className={styles.trainersToolbar}>
+          <label className={styles.searchBox}>
+            <input
+              className={styles.searchInput}
+              type="search"
+              placeholder="Поиск"
+              value={trainerSearch}
+              onChange={(event) => setTrainerSearch(event.target.value)}
+            />
+          </label>
+
+          <button className={styles.addButton} type="button" onClick={openCreateTrainerModal}>
+            + Добавить
+          </button>
+        </div>
+
+        <div className={styles.trainersHeader}>
+          <span>ФИО</span>
+          <span>Номер</span>
+          <span />
+        </div>
+
+        {isTrainerListLoading ? <p className={styles.placeholder}>Загрузка тренеров...</p> : null}
+        {trainerListError ? <p className={styles.placeholder}>{trainerListError}</p> : null}
+        {!isTrainerListLoading && !trainerListError && filteredTrainers.length === 0 ? (
+          <p className={styles.placeholder}>Тренеры не найдены</p>
+        ) : null}
+
+        {!isTrainerListLoading && !trainerListError
+          ? filteredTrainers.map((trainer) => (
+              <div key={trainer.user_id} className={styles.trainerRow}>
+                <span className={styles.trainerName}>{trainer.full_name}</span>
+                <span className={styles.trainerPhone}>{normalizePhone(trainer.phone)}</span>
+
+                <div className={styles.trainerActions}>
+                  <button className={styles.deleteButton} type="button" onClick={() => setDeletingTrainer(trainer)}>
+                    Удалить
+                  </button>
+                  <button className={styles.editButton} type="button" onClick={() => openEditTrainerModal(trainer)} aria-label="Редактировать тренера">
+                    ✎
+                  </button>
+                </div>
+              </div>
+            ))
+          : null}
+
+        <ConfirmActionModal
+          isOpen={Boolean(deletingTrainer)}
+          title="Вы действительно хотите удалить учетную запись тренера?"
+          showReason={false}
+          reason=""
+          reasonPlaceholder=""
+          isPending={isDeletingTrainer}
+          isConfirmDisabled={isDeletingTrainer}
+          error={trainerDeleteError}
+          yesLabel="Да"
+          noLabel="Нет"
+          onReasonChange={noop}
+          onConfirm={() => void confirmDeleteTrainer()}
+          onClose={closeDeleteTrainerModal}
+        />
+
+        <UserEditModal
+          isOpen={isCreateTrainerModalOpen}
+          title="Создание новой учетной записи"
+          isTrainerEditing
+          isAvatarVisible={false}
+          avatarUrl=""
+          lastName={trainerCreateForm.last_name}
+          firstName={trainerCreateForm.first_name}
+          patronymic={trainerCreateForm.patronymic}
+          phone={trainerCreateForm.phone}
+          email={trainerCreateForm.email}
+          description={trainerCreateForm.description}
+          password={trainerCreateForm.password}
+          isSaving={isCreatingTrainer}
+          error={trainerCreateError}
+          text={editingPanelText}
+          passwordPlaceholder=""
+          onLastNameChange={(value) => handleCreateTrainerFieldChange('last_name', value)}
+          onFirstNameChange={(value) => handleCreateTrainerFieldChange('first_name', value)}
+          onPatronymicChange={(value) => handleCreateTrainerFieldChange('patronymic', value)}
+          onPhoneChange={(value) => handleCreateTrainerFieldChange('phone', value)}
+          onEmailChange={(value) => handleCreateTrainerFieldChange('email', value)}
+          onDescriptionChange={(value) => handleCreateTrainerFieldChange('description', value)}
+          onPasswordChange={(value) => handleCreateTrainerFieldChange('password', value)}
+          onAvatarError={noop}
+          onSubmit={() => void submitCreateTrainer()}
+          onClose={closeCreateTrainerModal}
+        />
+
+        <UserEditModal
+          isOpen={Boolean(editingTrainer)}
+          isTrainerEditing
+          isAvatarVisible={false}
+          avatarUrl=""
+          lastName={editLastName}
+          firstName={editFirstName}
+          patronymic={editPatronymic}
+          phone={editPhone}
+          email={editEmail}
+          description={editDescription}
+          password={editPassword}
+          isSaving={isEditTrainerSaving}
+          error={editTrainerError}
+          text={editingPanelText}
+          showDeleteButton
+          deleteLabel="Удалить"
+          isDeleteDisabled={isEditTrainerSaving}
+          onLastNameChange={setEditLastName}
+          onFirstNameChange={setEditFirstName}
+          onPatronymicChange={setEditPatronymic}
+          onPhoneChange={setEditPhone}
+          onEmailChange={setEditEmail}
+          onDescriptionChange={setEditDescription}
+          onPasswordChange={setEditPassword}
+          onAvatarError={noop}
+          onSubmit={() => void submitEditTrainer()}
+          onDelete={requestDeleteFromEditModal}
+          onClose={closeEditTrainerModal}
+        />
+      </section>
+    )
+  }
+
   if (activeTab !== 'services') {
     return <p className={styles.placeholder}>Раздел «{buildPlaceholderLabel(activeTab)}» в разработке</p>
   }
@@ -487,12 +891,7 @@ export function GymTabPanel({
           <div className={styles.row} key={membership.id}>
             <span className={styles.nameCell}>{membership.name}</span>
             <span className={styles.priceCell}>{formatPrice(membership.price)}</span>
-            <button
-              className={styles.editButton}
-              type="button"
-              aria-label="Редактировать абонемент"
-              onClick={() => openEditMembershipModal(membership)}
-            >
+            <button className={styles.editButton} type="button" aria-label="Редактировать абонемент" onClick={() => openEditMembershipModal(membership)}>
               ✎
             </button>
           </div>
@@ -519,12 +918,7 @@ export function GymTabPanel({
           <div className={styles.row} key={packageItem.id}>
             <span className={styles.nameCell}>{buildTrainerPackageTitle(packageItem)}</span>
             <span className={styles.priceCell}>{formatPrice(packageItem.price)}</span>
-            <button
-              className={styles.editButton}
-              type="button"
-              aria-label="Редактировать пакет"
-              onClick={() => void openEditTrainerPackageModal(packageItem)}
-            >
+            <button className={styles.editButton} type="button" aria-label="Редактировать пакет" onClick={() => void openEditTrainerPackageModal(packageItem)}>
               ✎
             </button>
           </div>
@@ -607,22 +1001,12 @@ export function GymTabPanel({
             {membershipError ? <p className={styles.modalError}>{membershipError}</p> : null}
 
             <div className={styles.modalActions}>
-              <button
-                className={styles.modalSubmitButton}
-                type="button"
-                onClick={() => void submitMembership()}
-                disabled={isMembershipBusy}
-              >
+              <button className={styles.modalSubmitButton} type="button" onClick={() => void submitMembership()} disabled={isMembershipBusy}>
                 {membershipModalMode === 'edit' ? 'Сохранить' : 'Добавить'}
               </button>
 
               {membershipModalMode === 'edit' ? (
-                <button
-                  className={styles.modalDangerButton}
-                  type="button"
-                  onClick={() => void removeMembership()}
-                  disabled={isMembershipBusy}
-                >
+                <button className={styles.modalDangerButton} type="button" onClick={() => void removeMembership()} disabled={isMembershipBusy}>
                   Удалить
                 </button>
               ) : null}

@@ -241,6 +241,15 @@
   overflow-y: auto;
 }
 
+.editModalTitle {
+  margin: 0;
+  font-family: 'Times New Roman', Georgia, serif;
+  color: #111;
+  font-size: clamp(38px, 2.7vw, 58px);
+  line-height: 1.1;
+  font-weight: 700;
+}
+
 .gymEditModalCard {
   width: min(1160px, 100%);
   border: 1px solid #2a2821;
@@ -387,7 +396,37 @@
   line-height: 1;
 }
 
+.editSubmitRow {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  flex-wrap: nowrap;
+}
+
+.editSubmitRow .saveEditButton {
+  margin: 0;
+  width: auto;
+  min-width: 240px;
+}
+
+.deleteEditButton {
+  width: auto;
+  min-width: 240px;
+  border: 1px solid #b13434;
+  border-radius: 999px;
+  background: transparent;
+  color: #b13434;
+  padding: 10px 16px;
+  cursor: pointer;
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: clamp(28px, 2vw, 46px);
+  line-height: 1;
+}
+
 .saveEditButton:disabled,
+.deleteEditButton:disabled,
 .editInput:disabled,
 .editTextarea:disabled,
 .scheduleInput:disabled {
@@ -396,6 +435,10 @@
 }
 
 @media (max-width: 900px) {
+  .editSubmitRow {
+    flex-wrap: wrap;
+  }
+
   .gymMetaGrid {
     grid-template-columns: 1fr;
     gap: 10px;

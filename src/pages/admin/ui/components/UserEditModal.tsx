@@ -4,6 +4,7 @@ import styles from './EditingPanel.module.css'
 
 type UserEditModalProps = {
   isOpen: boolean
+  title?: string
   isTrainerEditing: boolean
   isAvatarVisible: boolean
   avatarUrl: string
@@ -17,6 +18,10 @@ type UserEditModalProps = {
   isSaving: boolean
   error: string | null
   text: EditingPanelText
+  showDeleteButton?: boolean
+  deleteLabel?: string
+  isDeleteDisabled?: boolean
+  passwordPlaceholder?: string
   onLastNameChange: (value: string) => void
   onFirstNameChange: (value: string) => void
   onPatronymicChange: (value: string) => void
@@ -26,11 +31,13 @@ type UserEditModalProps = {
   onPasswordChange: (value: string) => void
   onAvatarError: () => void
   onSubmit: () => void
+  onDelete?: () => void
   onClose: () => void
 }
 
 export function UserEditModal({
   isOpen,
+  title,
   isTrainerEditing,
   isAvatarVisible,
   avatarUrl,
@@ -44,6 +51,10 @@ export function UserEditModal({
   isSaving,
   error,
   text,
+  showDeleteButton = false,
+  deleteLabel = 'Удалить',
+  isDeleteDisabled = false,
+  passwordPlaceholder,
   onLastNameChange,
   onFirstNameChange,
   onPatronymicChange,
@@ -53,8 +64,10 @@ export function UserEditModal({
   onPasswordChange,
   onAvatarError,
   onSubmit,
+  onDelete,
   onClose,
 }: UserEditModalProps) {
+  const resolvedPasswordPlaceholder = passwordPlaceholder ?? text.passwordPlaceholder
   useEscapeKey(onClose, isOpen)
 
   if (!isOpen) {
@@ -64,6 +77,8 @@ export function UserEditModal({
   return (
     <div className={styles.modalOverlay} role="presentation" onClick={onClose}>
       <div className={styles.editModalCard} role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
+        {title ? <h3 className={styles.editModalTitle}>{title}</h3> : null}
+
         {isTrainerEditing && isAvatarVisible ? (
           <div className={styles.avatarBox}>
             <img src={avatarUrl} alt="" className={styles.avatarImage} onError={onAvatarError} />
@@ -148,16 +163,23 @@ export function UserEditModal({
               value={password}
               onChange={(event) => onPasswordChange(event.target.value)}
               disabled={isSaving}
-              placeholder={text.passwordPlaceholder}
+              placeholder={resolvedPasswordPlaceholder.length > 0 ? resolvedPasswordPlaceholder : undefined}
             />
           </label>
         ) : null}
 
         {error ? <p className={styles.error}>{error}</p> : null}
 
-        <button type="button" className={styles.saveEditButton} onClick={onSubmit} disabled={isSaving}>
-          {text.save}
-        </button>
+        <div className={styles.editSubmitRow}>
+          <button type="button" className={styles.saveEditButton} onClick={onSubmit} disabled={isSaving}>
+            {text.save}
+          </button>
+          {showDeleteButton ? (
+            <button type="button" className={styles.deleteEditButton} onClick={onDelete} disabled={isDeleteDisabled || isSaving}>
+              {deleteLabel}
+            </button>
+          ) : null}
+        </div>
       </div>
     </div>
   )

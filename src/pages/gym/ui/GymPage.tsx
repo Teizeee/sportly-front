@@ -170,6 +170,7 @@ export function GymPage() {
               gymId={me?.gym?.id ?? null}
               onMembershipCreated={refresh}
               onTrainerPackageCreated={refresh}
+              onTrainerDeleted={refresh}
             />
           </SectionCard>
         </section>

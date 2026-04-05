@@ -67,6 +67,19 @@ export type GymTrainerOption = {
   label: string
 }
 
+export type GymTrainerListItem = {
+  user_id: string
+  trainer_id: string
+  full_name: string
+  first_name: string
+  last_name: string
+  patronymic: string | null
+  email: string
+  phone: string | null
+  description: string | null
+  password: string | null
+}
+
 export type GymPayload = {
   id: string
   status: GymStatus

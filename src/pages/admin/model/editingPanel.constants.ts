@@ -46,7 +46,7 @@ export const editingPanelText = {
   descriptionCounterMax: 255,
   password: 'Пароль',
   passwordPlaceholder: 'Оставьте пустым, если не нужно менять',
-  save: 'Сохранить изменения',
+  save: 'Сохранить',
 } as const
 
 export type EditingPanelText = typeof editingPanelText
