@@ -2,6 +2,7 @@ import { httpClient } from '@shared/lib/http/httpClient'
 import type {
   CurrentGymAdmin,
   GymApplicationPayload,
+  GymTrainerOption,
   MembershipType,
   SubscriptionTextPayload,
   TrainerPackage,
@@ -176,5 +177,104 @@ export async function submitGymApplication(payload: {
   await httpClient.request('/gyms/applications', {
     method: 'POST',
     body: payload,
+  })
+}
+
+export async function createGymMembership(payload: {
+  name: string
+  description: string
+  price: number
+  duration_months: 1 | 3 | 6 | 12
+}): Promise<void> {
+  await httpClient.request('/gyms/memberships', {
+    method: 'POST',
+    body: payload,
+  })
+}
+
+export async function updateGymMembership(
+  membershipTypeId: string,
+  payload: {
+    name: string
+    description: string
+    price: number
+    duration_months: 1 | 3 | 6 | 12
+  },
+): Promise<void> {
+  await httpClient.request(`/gyms/memberships/${membershipTypeId}`, {
+    method: 'PUT',
+    body: payload,
+  })
+}
+
+export async function deleteGymMembership(membershipTypeId: string): Promise<void> {
+  await httpClient.request(`/gyms/memberships/${membershipTypeId}`, {
+    method: 'DELETE',
+  })
+}
+
+function toGymTrainerOption(raw: unknown): GymTrainerOption | null {
+  const source = asRecord(raw)
+
+  if (!source) {
+    return null
+  }
+
+  const firstName = typeof source.first_name === 'string' ? source.first_name.trim() : ''
+  const lastName = typeof source.last_name === 'string' ? source.last_name.trim() : ''
+  const patronymic = typeof source.patronymic === 'string' ? source.patronymic.trim() : ''
+  const trainerProfile = asRecord(source.trainer_profile)
+  const trainerId = typeof trainerProfile?.id === 'string' ? trainerProfile.id : null
+
+  if (!trainerId || !firstName || !lastName) {
+    return null
+  }
+
+  return {
+    trainer_id: trainerId,
+    label: [lastName, firstName, patronymic].filter((item) => item.length > 0).join(' '),
+  }
+}
+
+export async function fetchGymTrainers(gymId: string): Promise<GymTrainerOption[]> {
+  const payload = await httpClient.request<unknown>(`/auth/users?gym_id=${encodeURIComponent(gymId)}&role=TRAINER`)
+
+  return asArray(payload)
+    .map(toGymTrainerOption)
+    .filter((item): item is GymTrainerOption => item !== null)
+}
+
+export async function createGymTrainerPackage(payload: {
+  trainer_id: string
+  name: string
+  session_count: number
+  price: number
+  description: string
+}): Promise<void> {
+  await httpClient.request('/gyms/packages', {
+    method: 'POST',
+    body: payload,
+  })
+}
+
+export async function updateGymTrainerPackage(
+  trainerPackageId: string,
+  payload: {
+    trainer_id: string
+    name: string
+    session_count: number
+    price: number
+    description: string
+  },
+): Promise<void> {
+  await httpClient.request(`/gyms/packages/${trainerPackageId}`, {
+    method: 'PUT',
+    body: payload,
+  })
+}
+
+export async function deleteGymTrainerPackage(trainerPackageId: string): Promise<void> {
+  await httpClient.request(`/gyms/packages/${trainerPackageId}`, {
+    method: 'DELETE',
   })
 }

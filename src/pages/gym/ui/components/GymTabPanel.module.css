@@ -37,6 +37,7 @@
   font-size: clamp(20px, 1.2vw, 28px);
   padding: 8px 16px;
   line-height: 1;
+  cursor: pointer;
 }
 
 .tableHeader,
@@ -80,8 +81,193 @@
   cursor: not-allowed;
 }
 
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 18px;
+}
+
+.modalCard {
+  width: min(1240px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
+  border: 1px solid #2a2821;
+  border-radius: 18px;
+  background: #cdc6b5;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.modalTitle {
+  margin: 0 0 4px;
+  font-family: 'Times New Roman', Georgia, serif;
+  color: #111;
+  font-size: clamp(40px, 2.8vw, 68px);
+  line-height: 1.12;
+}
+
+.modalField {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.modalLabel {
+  font-family: 'Times New Roman', Georgia, serif;
+  color: #111;
+  font-size: clamp(30px, 2.2vw, 62px);
+  line-height: 1.1;
+}
+
+.modalInput,
+.modalTextarea {
+  width: 100%;
+  border: 1px solid #2a2821;
+  border-radius: 20px;
+  background-color: #cdc6b5;
+  padding: 10px 16px;
+  font-family: 'Times New Roman', Georgia, serif;
+  color: #111;
+  font-size: clamp(24px, 1.6vw, 40px);
+  line-height: 1.2;
+}
+
+.modalDropdown {
+  position: relative;
+  width: 100%;
+}
+
+.modalSelectTrigger {
+  width: 100%;
+  border: 1px solid #2a2821;
+  border-radius: 20px;
+  background-color: #cdc6b5;
+  color: #111;
+  text-align: left;
+  padding: 10px clamp(50px, 4vw, 88px) 10px 16px;
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: clamp(24px, 1.6vw, 40px);
+  line-height: 1.2;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 12'%3E%3Cpath fill='%23111' d='M10 11.2 0.8 1.9 2.2 0.5 10 8.4 17.8 0.5 19.2 1.9z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right clamp(16px, 1.8vw, 34px) center;
+  background-size: clamp(16px, 1.2vw, 24px);
+}
+
+.modalDropdownMenu {
+  position: absolute;
+  z-index: 12;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  border: 1px solid #2a2821;
+  border-radius: 18px;
+  background-color: #cdc6b5;
+  max-height: min(320px, 40vh);
+  overflow-y: auto;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22);
+}
+
+.modalDropdownOption {
+  display: block;
+  width: 100%;
+  border: none;
+  border-top: 1px solid #b7b09f;
+  background-color: #cdc6b5;
+  color: #111;
+  text-align: left;
+  padding: 10px 16px;
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: clamp(24px, 1.6vw, 40px);
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.modalDropdownOption:first-child {
+  border-top: none;
+}
+
+.modalDropdownOption:hover {
+  background-color: #c4bdab;
+}
+
+.modalTextarea {
+  min-height: clamp(220px, 26vh, 380px);
+  resize: vertical;
+}
+
+.modalActions {
+  margin-top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.modalSubmitButton {
+  border: none;
+  border-radius: 999px;
+  background: #646357;
+  color: #111;
+  min-width: clamp(180px, 20vw, 320px);
+  padding: 12px 24px;
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: clamp(38px, 2.2vw, 58px);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.modalDangerButton {
+  border: 1px solid #b13434;
+  border-radius: 999px;
+  background: transparent;
+  color: #b13434;
+  min-width: clamp(180px, 20vw, 320px);
+  padding: 11px 24px;
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: clamp(38px, 2.2vw, 58px);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.modalError {
+  margin: 0;
+  font-family: 'Times New Roman', Georgia, serif;
+  color: #a92525;
+  font-size: clamp(20px, 1.4vw, 30px);
+}
+
+.modalInfo {
+  margin: 0;
+  font-family: 'Times New Roman', Georgia, serif;
+  color: #4c4b45;
+  font-size: clamp(20px, 1.4vw, 30px);
+}
+
+.modalInput:disabled,
+.modalTextarea:disabled,
+.modalSubmitButton:disabled,
+.modalSelectTrigger:disabled,
+.modalDangerButton:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
 @media (max-width: 980px) {
   .columns {
     grid-template-columns: 1fr;
+  }
+
+  .modalCard {
+    padding: 18px;
+    border-radius: 14px;
   }
 }

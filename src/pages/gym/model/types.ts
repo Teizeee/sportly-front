@@ -62,6 +62,11 @@ export type TrainerPackage = {
   trainer: TrainerPayload | null
 }
 
+export type GymTrainerOption = {
+  trainer_id: string
+  label: string
+}
+
 export type GymPayload = {
   id: string
   status: GymStatus

@@ -167,6 +167,9 @@ export function GymPage() {
               trainerPackages={trainerPackages}
               isServicesLoading={servicesLoading}
               servicesError={servicesError}
+              gymId={me?.gym?.id ?? null}
+              onMembershipCreated={refresh}
+              onTrainerPackageCreated={refresh}
             />
           </SectionCard>
         </section>
