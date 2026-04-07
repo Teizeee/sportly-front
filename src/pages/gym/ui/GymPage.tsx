@@ -7,6 +7,7 @@ import { SectionCard } from '@shared/ui/section-card/SectionCard'
 import { TabNav } from '@shared/ui/tab-nav/TabNav'
 import { submitGymApplication } from '../api/gymDashboardApi'
 import { gymTabs } from '../model/gymTabs'
+import { getGymSubscriptionWarning } from '../model/subscription'
 import type { GymApplicationPayload, GymTabKey } from '../model/types'
 import { useGymDashboard } from '../model/useGymDashboard'
 import { GymTabPanel } from './components/GymTabPanel'
@@ -118,6 +119,7 @@ export function GymPage() {
   const gymTitle = me?.gym?.gym_application?.title ?? me?.gym_application?.title ?? 'Без названия'
   const gymAddress = me?.gym?.gym_application?.address ?? me?.gym_application?.address ?? '-'
   const gymPhone = me?.gym?.gym_application?.phone ?? me?.gym_application?.phone ?? '-'
+  const subscriptionWarning = getGymSubscriptionWarning(me?.gym?.subscription?.end_date)
 
   return (
     <DashboardShell>
@@ -137,13 +139,16 @@ export function GymPage() {
         <section className={styles.registeredLayout}>
           <header className={styles.registeredHeader}>
             <div>
-              <h1 className={styles.registeredTitle}>{gymTitle}</h1>
+              <div className={styles.registeredTitleRow}>
+                <h1 className={styles.registeredTitle}>{gymTitle}</h1>
+                {subscriptionWarning ? <span className={styles.subscriptionWarning}>{subscriptionWarning}</span> : null}
+              </div>
               <p className={styles.registeredContacts}>
                 {gymAddress} <span aria-hidden="true">•</span> {gymPhone}
               </p>
             </div>
 
-            <button className={styles.settingsIconButton} type="button" disabled aria-label="Настройки">
+            <button className={styles.settingsIconButton} type="button" aria-label="Настройки" onClick={() => navigate('/settings')}>
               <svg width="57" height="57" viewBox="0 0 57 57" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <mask id="settings-icon-mask" style={{ maskType: 'alpha' }} maskUnits="userSpaceOnUse" x="0" y="0" width="57" height="57">
                   <rect width="56.4893" height="56.4893" fill="#D9D9D9" />

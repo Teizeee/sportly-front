@@ -18,6 +18,21 @@
   line-height: 1.1;
 }
 
+.registeredTitleRow {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.subscriptionWarning {
+  font-family: 'Times New Roman', Georgia, serif;
+  color: #d9342b;
+  font-size: clamp(30px, 2vw, 42px);
+  line-height: 1.1;
+  font-weight: 700;
+}
+
 .registeredContacts {
   margin: 12px 0 0;
   display: flex;
@@ -39,10 +54,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-}
-
-.settingsIconButton:disabled {
-  opacity: 1;
+  cursor: pointer;
 }
 
 .topBar {

@@ -1,0 +1,272 @@
+.layout {
+  display: grid;
+  gap: 16px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.backIconButton {
+  border: none;
+  background: transparent;
+  color: #111;
+  padding: 0;
+  line-height: 1;
+  font-size: clamp(32px, 2vw, 44px);
+  cursor: pointer;
+}
+
+.titleRow {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.title {
+  margin: 0;
+  font-family: 'Times New Roman', Georgia, serif;
+  color: #111;
+  font-size: clamp(36px, 2.5vw, 52px);
+  line-height: 1.1;
+}
+
+.subscriptionWarning {
+  font-family: 'Times New Roman', Georgia, serif;
+  color: #d9342b;
+  font-size: clamp(30px, 2vw, 40px);
+  line-height: 1.1;
+  font-weight: 700;
+}
+
+.contacts {
+  margin: 8px 0 0;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-family: 'Times New Roman', Georgia, serif;
+  color: #111;
+  font-size: clamp(28px, 1.9vw, 38px);
+  line-height: 1.1;
+}
+
+.logoutButton {
+  border: none;
+  border-radius: 999px;
+  background: #646357;
+  color: #111;
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: clamp(22px, 1.4vw, 28px);
+  line-height: 1;
+  padding: 10px 24px;
+  cursor: pointer;
+}
+
+.innerCard {
+  border: 1px solid #3a372f;
+  border-radius: 12px;
+  padding: 20px 18px;
+}
+
+.avatarBox {
+  width: 176px;
+  height: 176px;
+  border: 1px solid #3a372f;
+  background: #efeeea;
+  overflow: hidden;
+}
+
+.avatarImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.formRow {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.field {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.label {
+  font-family: 'Times New Roman', Georgia, serif;
+  color: #111;
+  font-size: clamp(22px, 1.5vw, 30px);
+  line-height: 1.1;
+}
+
+.input,
+.textarea,
+.scheduleInput {
+  width: 100%;
+  border: 1px solid #3a372f;
+  border-radius: 10px;
+  background: transparent;
+  padding: 8px 12px;
+  font-family: 'Times New Roman', Georgia, serif;
+  color: #111;
+  font-size: clamp(24px, 1.5vw, 34px);
+  line-height: 1.2;
+}
+
+.textarea {
+  min-height: 190px;
+  resize: vertical;
+}
+
+.counter {
+  margin: 8px 2px 0 0;
+  text-align: right;
+  font-family: 'Times New Roman', Georgia, serif;
+  color: #7c786d;
+  font-size: clamp(20px, 1.2vw, 26px);
+}
+
+.scheduleBlock {
+  margin-top: 10px;
+}
+
+.scheduleTitle {
+  margin: 0 0 10px;
+  font-family: 'Times New Roman', Georgia, serif;
+  color: #111;
+  font-size: clamp(26px, 1.8vw, 34px);
+  line-height: 1.1;
+}
+
+.scheduleRow {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(90px, 130px) auto minmax(90px, 130px);
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.scheduleDay {
+  font-family: 'Times New Roman', Georgia, serif;
+  color: #111;
+  font-size: clamp(24px, 1.5vw, 32px);
+}
+
+.scheduleDash {
+  font-family: 'Times New Roman', Georgia, serif;
+  color: #111;
+  font-size: clamp(24px, 1.5vw, 32px);
+}
+
+.actions {
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.submitButton {
+  border: none;
+  border-radius: 999px;
+  background: #646357;
+  color: #111;
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: clamp(24px, 1.4vw, 32px);
+  line-height: 1;
+  padding: 12px 22px;
+  cursor: pointer;
+}
+
+.submitButton:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.errorText,
+.successText,
+.pageState {
+  margin-top: 12px;
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: clamp(22px, 1.3vw, 28px);
+}
+
+.errorText {
+  color: #bc3127;
+}
+
+.successText {
+  color: #296e36;
+}
+
+.pageState {
+  color: #222;
+}
+
+.subscriptionInfo {
+  display: grid;
+  gap: 14px;
+}
+
+.subscriptionUntil {
+  font-family: 'Times New Roman', Georgia, serif;
+  color: #111;
+  font-size: clamp(30px, 2vw, 42px);
+  font-weight: 700;
+}
+
+.subscriptionText {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: 'Times New Roman', Georgia, serif;
+  color: #111;
+  font-size: clamp(25px, 1.4vw, 34px);
+  line-height: 1.35;
+}
+
+.backButton {
+  margin-top: 14px;
+  border: none;
+  border-radius: 999px;
+  background: #646357;
+  color: #111;
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: clamp(22px, 1.4vw, 28px);
+  line-height: 1;
+  padding: 10px 20px;
+  cursor: pointer;
+}
+
+@media (max-width: 1024px) {
+  .header {
+    flex-direction: column;
+  }
+
+  .formRow {
+    grid-template-columns: 1fr;
+  }
+
+  .actions {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 720px) {
+  .scheduleRow {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+}

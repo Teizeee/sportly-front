@@ -181,6 +181,30 @@ export async function submitGymApplication(payload: {
   })
 }
 
+export async function updateGymById(
+  gymId: string,
+  payload: {
+    title: string
+    address: string
+    description: string
+    phone: string
+    schedule: Array<{
+      id: string
+      day_of_week: number
+      open_time: string | null
+      close_time: string | null
+    }>
+    subscription: {
+      end_date: string
+    } | null
+  },
+): Promise<void> {
+  await httpClient.request(`/gyms/${gymId}`, {
+    method: 'PUT',
+    body: payload,
+  })
+}
+
 export async function createGymMembership(payload: {
   name: string
   description: string

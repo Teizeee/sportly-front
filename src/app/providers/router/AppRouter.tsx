@@ -4,6 +4,7 @@ import { LoginPage } from '@pages/login/ui/LoginPage'
 import { RegisterPage } from '@pages/register/ui/RegisterPage'
 import { AdminPage } from '@pages/admin/ui/AdminPage'
 import { GymPage } from '@pages/gym/ui/GymPage'
+import { GymSettingsPage } from '@pages/gym/ui/GymSettingsPage'
 import { getAccessToken, getUserRole, type UserRole } from '@shared/lib/auth/tokenStorage'
 
 function getDefaultPrivatePath(role: UserRole | null): '/' | '/admin' {
@@ -64,6 +65,14 @@ const appRouter = createBrowserRouter([
     element: (
       <ProtectedRoute allowedRoles={['SUPER_ADMIN']}>
         <AdminPage />
+      </ProtectedRoute>
+    ),
+  },
+  {
+    path: '/settings',
+    element: (
+      <ProtectedRoute allowedRoles={['GYM_ADMIN']}>
+        <GymSettingsPage />
       </ProtectedRoute>
     ),
   },
