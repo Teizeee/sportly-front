@@ -106,6 +106,26 @@ export type GymClientListItem = {
   active_package_sessions_left: number | null
 }
 
+export type BookingStatus = 'CREATED' | 'CANCELLED' | 'VISITED' | 'NOT_VISITED'
+
+export type BookedUserShort = {
+  id: string
+  first_name: string
+  last_name: string
+  patronymic: string | null
+}
+
+export type TrainerSlotAvailability = {
+  id: string | null
+  trainer_id: string
+  start_time: string
+  end_time: string
+  created_at: string | null
+  booking_id: string | null
+  booking_status: BookingStatus | null
+  booked_user: BookedUserShort | null
+}
+
 export type GymMembershipOption = {
   id: string
   label: string

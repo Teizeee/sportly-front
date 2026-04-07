@@ -1,5 +1,7 @@
 import { httpClient } from '@shared/lib/http/httpClient'
 import type {
+  BookingStatus,
+  BookedUserShort,
   GymClientListItem,
   CurrentGymAdmin,
   GymMembershipOption,
@@ -10,6 +12,7 @@ import type {
   GymTrainerOption,
   MembershipType,
   SubscriptionTextPayload,
+  TrainerSlotAvailability,
   TrainerPackage,
 } from '../model/types'
 
@@ -214,6 +217,65 @@ function toGymPackageOption(raw: unknown): GymPackageOption | null {
   return {
     id,
     label: name,
+  }
+}
+
+function toBookedUserShort(raw: unknown): BookedUserShort | null {
+  const source = asRecord(raw)
+
+  if (!source) {
+    return null
+  }
+
+  const id = typeof source.id === 'string' ? source.id : null
+  const firstName = typeof source.first_name === 'string' ? source.first_name.trim() : ''
+  const lastName = typeof source.last_name === 'string' ? source.last_name.trim() : ''
+  const patronymic = typeof source.patronymic === 'string' ? source.patronymic.trim() : null
+
+  if (!id || !firstName || !lastName) {
+    return null
+  }
+
+  return {
+    id,
+    first_name: firstName,
+    last_name: lastName,
+    patronymic: patronymic && patronymic.length > 0 ? patronymic : null,
+  }
+}
+
+function toBookingStatus(raw: unknown): BookingStatus | null {
+  if (raw === 'CREATED' || raw === 'CANCELLED' || raw === 'VISITED' || raw === 'NOT_VISITED') {
+    return raw
+  }
+
+  return null
+}
+
+function toTrainerSlotAvailability(raw: unknown): TrainerSlotAvailability | null {
+  const source = asRecord(raw)
+
+  if (!source) {
+    return null
+  }
+
+  const trainerId = typeof source.trainer_id === 'string' ? source.trainer_id : null
+  const startTime = typeof source.start_time === 'string' ? source.start_time : null
+  const endTime = typeof source.end_time === 'string' ? source.end_time : null
+
+  if (!trainerId || !startTime || !endTime) {
+    return null
+  }
+
+  return {
+    id: typeof source.id === 'string' ? source.id : null,
+    trainer_id: trainerId,
+    start_time: startTime,
+    end_time: endTime,
+    created_at: typeof source.created_at === 'string' ? source.created_at : null,
+    booking_id: typeof source.booking_id === 'string' ? source.booking_id : null,
+    booking_status: toBookingStatus(source.booking_status),
+    booked_user: toBookedUserShort(source.booked_user),
   }
 }
 
@@ -456,6 +518,29 @@ export async function fetchGymPackageOptions(gymId: string): Promise<GymPackageO
   return asArray(payload)
     .map(toGymPackageOption)
     .filter((item): item is GymPackageOption => item !== null)
+}
+
+export async function fetchTrainerSlots(trainerId: string, date: string): Promise<TrainerSlotAvailability[]> {
+  const payload = await httpClient.request<unknown>(
+    `/trainers/${encodeURIComponent(trainerId)}/slots?date=${encodeURIComponent(date)}`,
+  )
+
+  return asArray(payload)
+    .map(toTrainerSlotAvailability)
+    .filter((item): item is TrainerSlotAvailability => item !== null)
+}
+
+export async function markBookingAttendance(bookingId: string, status: 'VISITED' | 'NOT_VISITED'): Promise<void> {
+  await httpClient.request(`/clients/bookings/${bookingId}/attendance`, {
+    method: 'POST',
+    body: { status },
+  })
+}
+
+export async function cancelBooking(bookingId: string): Promise<void> {
+  await httpClient.request(`/clients/bookings/${bookingId}/cancel`, {
+    method: 'POST',
+  })
 }
 
 export async function deleteGymUserAccount(userId: string): Promise<void> {

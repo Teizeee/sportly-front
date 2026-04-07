@@ -10,6 +10,7 @@ import {
   assignClientMembership,
   assignClientTrainerPackage,
   blockGymClientUser,
+  cancelBooking,
   createGymTrainerUser,
   createGymMembership,
   createGymTrainerPackage,
@@ -20,8 +21,10 @@ import {
   fetchGymMembershipOptions,
   fetchGymPackageOptions,
   fetchGymReviews,
+  fetchTrainerSlots,
   fetchGymTrainers,
   fetchGymTrainerUsers,
+  markBookingAttendance,
   unblockGymClientUser,
   updateGymUserById,
   updateGymMembership,
@@ -29,6 +32,7 @@ import {
 } from '../../api/gymDashboardApi'
 import { gymTabs } from '../../model/gymTabs'
 import type {
+  BookingStatus,
   GymClientListItem,
   GymMembershipOption,
   GymPackageOption,
@@ -37,6 +41,7 @@ import type {
   GymTrainerListItem,
   GymTrainerOption,
   MembershipType,
+  TrainerSlotAvailability,
   TrainerPackage,
 } from '../../model/types'
 import styles from './GymTabPanel.module.css'
@@ -61,6 +66,7 @@ type ModalMode = 'create' | 'edit'
 type ClientActionMode = 'block' | 'unblock'
 type ClientAssignType = 'package' | 'membership'
 type ClientAssignOption = GymPackageOption | GymMembershipOption
+type BookingAttendanceStatus = 'VISITED' | 'NOT_VISITED'
 
 type MembershipFormState = {
   name: string
@@ -245,6 +251,95 @@ function clampRating(value: number): number {
   return Math.max(0, Math.min(5, Math.round(value)))
 }
 
+function getTodayDateInputValue(): string {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, '0')
+  const day = String(now.getDate()).padStart(2, '0')
+
+  return `${year}-${month}-${day}`
+}
+
+function shiftDateByDays(dateValue: string, days: number): string {
+  const date = new Date(`${dateValue}T00:00:00`)
+
+  if (Number.isNaN(date.getTime())) {
+    return getTodayDateInputValue()
+  }
+
+  date.setDate(date.getDate() + days)
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+
+  return `${year}-${month}-${day}`
+}
+
+function formatBookingDateLabel(dateValue: string): string {
+  const date = new Date(`${dateValue}T00:00:00`)
+
+  if (Number.isNaN(date.getTime())) {
+    return '-'
+  }
+
+  return new Intl.DateTimeFormat('ru-RU', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(date)
+}
+
+function formatSlotTimeLabel(dateTime: string): string {
+  const date = new Date(dateTime)
+
+  if (Number.isNaN(date.getTime())) {
+    return '--:--'
+  }
+
+  return new Intl.DateTimeFormat('ru-RU', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date)
+}
+
+function formatBookedUserName(slot: TrainerSlotAvailability): string {
+  const bookedUser = slot.booked_user
+
+  if (!bookedUser) {
+    return 'Нет бронирований'
+  }
+
+  const firstName = bookedUser.first_name.trim()
+  const lastInitial = bookedUser.last_name.trim().charAt(0)
+
+  if (!firstName) {
+    return 'Нет бронирований'
+  }
+
+  if (!lastInitial) {
+    return firstName
+  }
+
+  return `${firstName} ${lastInitial}.`
+}
+
+function resolveBookingStatusText(status: BookingStatus): string {
+  if (status === 'VISITED') {
+    return 'Посетил'
+  }
+
+  if (status === 'NOT_VISITED') {
+    return 'Отсутствовал'
+  }
+
+  if (status === 'CANCELLED') {
+    return 'Отменено'
+  }
+
+  return ''
+}
+
 function ReviewStars({ rating }: { rating: number }) {
   const normalized = clampRating(rating)
 
@@ -338,6 +433,21 @@ export function GymTabPanel({
   const [clientAssignError, setClientAssignError] = useState<string | null>(null)
   const [isClientAssignDropdownOpen, setIsClientAssignDropdownOpen] = useState(false)
   const clientAssignDropdownRef = useRef<HTMLDivElement | null>(null)
+  const [bookingDate, setBookingDate] = useState(() => getTodayDateInputValue())
+  const [bookingTrainerOptions, setBookingTrainerOptions] = useState<GymTrainerOption[]>([])
+  const [isBookingTrainerOptionsLoading, setIsBookingTrainerOptionsLoading] = useState(false)
+  const [bookingTrainerOptionsError, setBookingTrainerOptionsError] = useState<string | null>(null)
+  const [selectedBookingTrainerId, setSelectedBookingTrainerId] = useState('')
+  const [isBookingTrainerDropdownOpen, setIsBookingTrainerDropdownOpen] = useState(false)
+  const bookingTrainerDropdownRef = useRef<HTMLDivElement | null>(null)
+  const [slots, setSlots] = useState<TrainerSlotAvailability[]>([])
+  const [isSlotsLoading, setIsSlotsLoading] = useState(false)
+  const [slotsError, setSlotsError] = useState<string | null>(null)
+  const [attendanceMenuSlotId, setAttendanceMenuSlotId] = useState<string | null>(null)
+  const attendanceMenuRef = useRef<HTMLDivElement | null>(null)
+  const [bookingActionPendingId, setBookingActionPendingId] = useState<string | null>(null)
+  const [bookingActionError, setBookingActionError] = useState<string | null>(null)
+  const [cancelBookingId, setCancelBookingId] = useState<string | null>(null)
 
   const isMembershipBusy = isMembershipSubmitting || isMembershipDeleting
   const isPackageBusy = isPackageSubmitting || isPackageDeleting
@@ -429,6 +539,15 @@ export function GymTabPanel({
     setClientActionError(null)
   }
 
+  const closeCancelBookingModal = () => {
+    if (bookingActionPendingId) {
+      return
+    }
+
+    setCancelBookingId(null)
+    setBookingActionError(null)
+  }
+
   const closeClientAssignModal = () => {
     if (isClientAssignSubmitting) {
       return
@@ -507,6 +626,64 @@ export function GymTabPanel({
     }
   }
 
+  const loadBookingTrainerOptions = async () => {
+    if (!gymId) {
+      setBookingTrainerOptions([])
+      setBookingTrainerOptionsError('Не удалось определить зал для загрузки тренеров')
+      setSelectedBookingTrainerId('')
+      return
+    }
+
+    setIsBookingTrainerOptionsLoading(true)
+    setBookingTrainerOptionsError(null)
+
+    try {
+      const options = await fetchGymTrainers(gymId)
+      setBookingTrainerOptions(options)
+      setSelectedBookingTrainerId((prev) => {
+        if (prev && options.some((item) => item.trainer_id === prev)) {
+          return prev
+        }
+
+        return options[0]?.trainer_id ?? ''
+      })
+
+      if (options.length === 0) {
+        setBookingTrainerOptionsError('У этого зала пока нет тренеров')
+      }
+    } catch {
+      setBookingTrainerOptions([])
+      setBookingTrainerOptionsError('Не удалось загрузить список тренеров')
+      setSelectedBookingTrainerId('')
+    } finally {
+      setIsBookingTrainerOptionsLoading(false)
+    }
+  }
+
+  const loadTrainerSlots = async (trainerId: string, date: string) => {
+    if (!trainerId) {
+      setSlots([])
+      setSlotsError('Выберите тренера')
+      return
+    }
+
+    setIsSlotsLoading(true)
+    setSlotsError(null)
+    setBookingActionError(null)
+    setAttendanceMenuSlotId(null)
+
+    try {
+      const payload = await fetchTrainerSlots(trainerId, date)
+      const sorted = [...payload].sort((left, right) => left.start_time.localeCompare(right.start_time))
+      setSlots(sorted)
+    } catch {
+      setSlots([])
+      setSlotsError('Не удалось загрузить слоты тренера')
+    } finally {
+      setIsSlotsLoading(false)
+    }
+  }
+
   useEffect(() => {
     if (activeTab !== 'trainers') {
       return
@@ -531,7 +708,33 @@ export function GymTabPanel({
     void loadClients()
   }, [activeTab, gymId])
 
+  useEffect(() => {
+    if (activeTab !== 'bookings') {
+      return
+    }
+
+    void loadBookingTrainerOptions()
+  }, [activeTab, gymId])
+
+  useEffect(() => {
+    if (activeTab !== 'bookings' || !selectedBookingTrainerId) {
+      return
+    }
+
+    void loadTrainerSlots(selectedBookingTrainerId, bookingDate)
+  }, [activeTab, selectedBookingTrainerId, bookingDate])
+
   useEscapeKey(() => {
+    if (attendanceMenuSlotId) {
+      setAttendanceMenuSlotId(null)
+      return
+    }
+
+    if (cancelBookingId) {
+      closeCancelBookingModal()
+      return
+    }
+
     if (isClientAssignModalOpen) {
       closeClientAssignModal()
       return
@@ -558,12 +761,14 @@ export function GymTabPanel({
     }
 
     closeMembershipModal()
-  }, isMembershipModalOpen || isTrainerPackageModalOpen || isCreateTrainerModalOpen || Boolean(editingTrainer) || Boolean(clientActionTarget) || isClientAssignModalOpen)
+  }, isMembershipModalOpen || isTrainerPackageModalOpen || isCreateTrainerModalOpen || Boolean(editingTrainer) || Boolean(clientActionTarget) || isClientAssignModalOpen || Boolean(cancelBookingId) || Boolean(attendanceMenuSlotId))
 
   useClickOutside(durationDropdownRef, () => setIsDurationDropdownOpen(false), isDurationDropdownOpen)
   useClickOutside(trainerDropdownRef, () => setIsTrainerDropdownOpen(false), isTrainerDropdownOpen)
   useClickOutside(clientMenuRef, () => setClientMenuTargetId(null), Boolean(clientMenuTargetId))
   useClickOutside(clientAssignDropdownRef, () => setIsClientAssignDropdownOpen(false), isClientAssignDropdownOpen)
+  useClickOutside(bookingTrainerDropdownRef, () => setIsBookingTrainerDropdownOpen(false), isBookingTrainerDropdownOpen)
+  useClickOutside(attendanceMenuRef, () => setAttendanceMenuSlotId(null), Boolean(attendanceMenuSlotId))
 
   const handleMembershipFieldChange = (field: keyof MembershipFormState, value: string | MembershipDuration) => {
     setMembershipError(null)
@@ -1008,6 +1213,52 @@ export function GymTabPanel({
     }
   }
 
+  const submitBookingAttendance = async (bookingId: string, status: BookingAttendanceStatus) => {
+    if (bookingActionPendingId) {
+      return
+    }
+
+    setBookingActionPendingId(bookingId)
+    setBookingActionError(null)
+
+    try {
+      await markBookingAttendance(bookingId, status)
+      await loadTrainerSlots(selectedBookingTrainerId, bookingDate)
+    } catch {
+      setBookingActionError('Не удалось обновить статус посещения')
+    } finally {
+      setBookingActionPendingId(null)
+    }
+  }
+
+  const requestCancelBooking = (bookingId: string) => {
+    if (bookingActionPendingId) {
+      return
+    }
+
+    setCancelBookingId(bookingId)
+    setBookingActionError(null)
+  }
+
+  const confirmCancelBooking = async () => {
+    if (!cancelBookingId || bookingActionPendingId) {
+      return
+    }
+
+    setBookingActionPendingId(cancelBookingId)
+    setBookingActionError(null)
+
+    try {
+      await cancelBooking(cancelBookingId)
+      setCancelBookingId(null)
+      await loadTrainerSlots(selectedBookingTrainerId, bookingDate)
+    } catch {
+      setBookingActionError('Не удалось отменить бронь')
+    } finally {
+      setBookingActionPendingId(null)
+    }
+  }
+
   const filteredTrainers = useMemo(() => {
     const query = trainerSearch.trim().toLowerCase()
 
@@ -1054,6 +1305,9 @@ export function GymTabPanel({
         : clientAssignType === 'membership'
           ? 'Выберите абонемент'
           : 'Выберите услугу')
+  const selectedBookingTrainerLabel =
+    bookingTrainerOptions.find((trainer) => trainer.trainer_id === selectedBookingTrainerId)?.label ??
+    (isBookingTrainerOptionsLoading ? 'Загрузка...' : 'Выберите тренера')
   const trainerAvatarUrl = editingTrainer ? `${resolveAvatarBaseUrl()}avatars/${editingTrainer.user_id}.jpg` : ''
   const averageRating = useMemo(() => {
     if (reviews.length === 0) {
@@ -1187,6 +1441,169 @@ export function GymTabPanel({
           onSubmit={() => void submitEditTrainer()}
           onDelete={requestDeleteFromEditModal}
           onClose={closeEditTrainerModal}
+        />
+      </section>
+    )
+  }
+
+  if (activeTab === 'bookings') {
+    return (
+      <section className={styles.bookingsSection}>
+        <div className={styles.bookingsToolbar}>
+          <div className={styles.bookingsDateControls}>
+            <button
+              type="button"
+              className={styles.bookingsDateNavButton}
+              aria-label="Предыдущий день"
+              onClick={() => setBookingDate((prev) => shiftDateByDays(prev, -1))}
+              disabled={isSlotsLoading}
+            >
+              ←
+            </button>
+
+            <span className={styles.bookingsDateLabel}>{formatBookingDateLabel(bookingDate)}</span>
+
+            <button
+              type="button"
+              className={styles.bookingsDateNavButton}
+              aria-label="Следующий день"
+              onClick={() => setBookingDate((prev) => shiftDateByDays(prev, 1))}
+              disabled={isSlotsLoading}
+            >
+              →
+            </button>
+          </div>
+
+          <div className={styles.bookingsTrainerDropdown} ref={bookingTrainerDropdownRef}>
+            <button
+              type="button"
+              className={styles.bookingsTrainerTrigger}
+              onClick={() => setIsBookingTrainerDropdownOpen((prev) => !prev)}
+              disabled={isBookingTrainerOptionsLoading || bookingTrainerOptions.length === 0}
+            >
+              {selectedBookingTrainerLabel}
+            </button>
+
+            {isBookingTrainerDropdownOpen ? (
+              <div className={styles.bookingsTrainerDropdownMenu}>
+                {bookingTrainerOptions.map((trainer) => (
+                  <button
+                    type="button"
+                    key={trainer.trainer_id}
+                    className={styles.bookingsTrainerDropdownOption}
+                    onClick={() => {
+                      setSelectedBookingTrainerId(trainer.trainer_id)
+                      setIsBookingTrainerDropdownOpen(false)
+                    }}
+                  >
+                    {trainer.label}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        </div>
+
+        {bookingTrainerOptionsError ? <p className={styles.placeholder}>{bookingTrainerOptionsError}</p> : null}
+        {isSlotsLoading ? <p className={styles.placeholder}>Загрузка слотов...</p> : null}
+        {slotsError ? <p className={styles.placeholder}>{slotsError}</p> : null}
+        {!isSlotsLoading && !slotsError && slots.length === 0 ? <p className={styles.placeholder}>Слоты не найдены</p> : null}
+        {bookingActionError ? <p className={styles.placeholder}>{bookingActionError}</p> : null}
+
+        {!isSlotsLoading && !slotsError && slots.length > 0 ? (
+          <div className={styles.bookingsList}>
+            {slots.map((slot) => {
+              const slotKey = slot.id ?? `${slot.trainer_id}-${slot.start_time}`
+              const isCreated = slot.booking_status === 'CREATED' && Boolean(slot.booking_id)
+              const isVisited = slot.booking_status === 'VISITED'
+              const statusText = slot.booking_status ? resolveBookingStatusText(slot.booking_status) : ''
+              const isAttendanceMenuOpen = attendanceMenuSlotId === slotKey
+              const isSlotActionPending = Boolean(slot.booking_id && bookingActionPendingId === slot.booking_id)
+              const bookingId = slot.booking_id
+
+              return (
+                <div key={slotKey} className={styles.bookingSlotRow}>
+                  <span className={styles.bookingSlotTime}>{formatSlotTimeLabel(slot.start_time)}</span>
+
+                  <div className={styles.bookingSlotCard}>
+                    <span className={styles.bookingSlotClient}>{formatBookedUserName(slot)}</span>
+
+                    <div className={styles.bookingSlotRight}>
+                      {isCreated && bookingId ? (
+                        <div className={styles.bookingSlotActions} ref={isAttendanceMenuOpen ? attendanceMenuRef : undefined}>
+                          <button
+                            type="button"
+                            className={styles.bookingMarkButton}
+                            onClick={() => setAttendanceMenuSlotId((prev) => (prev === slotKey ? null : slotKey))}
+                            disabled={isSlotActionPending}
+                          >
+                            Отметить
+                          </button>
+
+                          {isAttendanceMenuOpen ? (
+                            <div className={styles.bookingAttendanceMenu}>
+                              <button
+                                type="button"
+                                className={styles.bookingAttendanceMenuButton}
+                                onClick={() => void submitBookingAttendance(bookingId, 'VISITED')}
+                                disabled={isSlotActionPending}
+                              >
+                                Посетил
+                              </button>
+                              <button
+                                type="button"
+                                className={styles.bookingAttendanceMenuButton}
+                                onClick={() => void submitBookingAttendance(bookingId, 'NOT_VISITED')}
+                                disabled={isSlotActionPending}
+                              >
+                                Отсутствовал
+                              </button>
+                            </div>
+                          ) : null}
+
+                          <button
+                            type="button"
+                            className={styles.bookingCancelIconButton}
+                            aria-label="Отменить бронь"
+                            onClick={() => requestCancelBooking(bookingId)}
+                            disabled={isSlotActionPending}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ) : null}
+
+                      {!isCreated && statusText ? (
+                        <span
+                          className={`${styles.bookingStatusLabel} ${
+                            isVisited ? styles.bookingStatusVisited : styles.bookingStatusNegative
+                          }`}
+                        >
+                          {statusText}
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        ) : null}
+
+        <ConfirmActionModal
+          isOpen={Boolean(cancelBookingId)}
+          title="Вы действительно хотите отменить бронь?"
+          showReason={false}
+          reason=""
+          reasonPlaceholder=""
+          isPending={Boolean(bookingActionPendingId)}
+          isConfirmDisabled={Boolean(bookingActionPendingId)}
+          error={bookingActionError}
+          yesLabel="Да"
+          noLabel="Нет"
+          onReasonChange={noop}
+          onConfirm={() => void confirmCancelBooking()}
+          onClose={closeCancelBookingModal}
         />
       </section>
     )

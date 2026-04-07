@@ -24,6 +24,234 @@
   gap: 10px;
 }
 
+.bookingsSection {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.bookingsToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.bookingsDateControls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.bookingsDateNavButton {
+  width: 52px;
+  height: 42px;
+  border: 1px solid #2a2821;
+  border-radius: 12px;
+  background: transparent;
+  color: #111;
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.bookingsDateLabel {
+  min-width: 220px;
+  color: #111;
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: clamp(30px, 2vw, 44px);
+  line-height: 1.1;
+}
+
+.bookingsTrainerDropdown {
+  position: relative;
+  width: min(280px, 100%);
+}
+
+.bookingsTrainerTrigger {
+  width: 100%;
+  border: 1px solid #2a2821;
+  border-radius: 14px;
+  background: #ebe7dc;
+  color: #111;
+  text-align: left;
+  padding: 8px 44px 8px 14px;
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: clamp(24px, 1.5vw, 34px);
+  line-height: 1.15;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 12'%3E%3Cpath fill='%23111' d='M10 11.2 0.8 1.9 2.2 0.5 10 8.4 17.8 0.5 19.2 1.9z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 16px;
+}
+
+.bookingsTrainerDropdownMenu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 24;
+  border: 1px solid #2a2821;
+  border-radius: 14px;
+  background: #cdc6b5;
+  overflow: hidden;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+}
+
+.bookingsTrainerDropdownOption {
+  display: block;
+  width: 100%;
+  border: none;
+  border-top: 1px solid #b7b09f;
+  background: #cdc6b5;
+  color: #111;
+  text-align: left;
+  padding: 10px 14px;
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: clamp(22px, 1.4vw, 30px);
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.bookingsTrainerDropdownOption:first-child {
+  border-top: none;
+}
+
+.bookingsTrainerDropdownOption:hover {
+  background: #c4bdab;
+}
+
+.bookingsList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bookingSlotRow {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr);
+  align-items: stretch;
+  column-gap: 14px;
+}
+
+.bookingSlotTime {
+  color: #7a776e;
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: clamp(36px, 2.3vw, 50px);
+  line-height: 1.05;
+  align-self: center;
+}
+
+.bookingSlotCard {
+  border-radius: 12px;
+  background: #cdc6b5;
+  min-height: 82px;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.bookingSlotClient {
+  color: #111;
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: clamp(28px, 1.9vw, 40px);
+  line-height: 1.15;
+}
+
+.bookingSlotRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bookingSlotActions {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bookingMarkButton {
+  border: 1px solid #2a2821;
+  border-radius: 12px;
+  background: transparent;
+  color: #111;
+  min-width: 124px;
+  height: 42px;
+  padding: 0 12px;
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: clamp(24px, 1.5vw, 32px);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.bookingAttendanceMenu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 28;
+  width: 168px;
+  border: 1px solid #2a2821;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #cdc6b5;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+}
+
+.bookingAttendanceMenuButton {
+  display: block;
+  width: 100%;
+  border: none;
+  border-top: 1px solid #b7b09f;
+  background: #cdc6b5;
+  color: #111;
+  text-align: left;
+  padding: 8px 12px;
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: clamp(22px, 1.4vw, 28px);
+  line-height: 1.1;
+  cursor: pointer;
+}
+
+.bookingAttendanceMenuButton:first-child {
+  border-top: none;
+}
+
+.bookingAttendanceMenuButton:hover {
+  background: #c4bdab;
+}
+
+.bookingCancelIconButton {
+  width: 42px;
+  height: 42px;
+  border: 1px solid #2a2821;
+  border-radius: 12px;
+  background: transparent;
+  color: #111;
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: 42px;
+  line-height: 0.8;
+  cursor: pointer;
+}
+
+.bookingStatusLabel {
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: clamp(30px, 1.8vw, 42px);
+  line-height: 1.1;
+}
+
+.bookingStatusVisited {
+  color: #3f8f4d;
+}
+
+.bookingStatusNegative {
+  color: #b13434;
+}
+
 .clientsSearchRow {
   display: flex;
   align-items: center;
@@ -380,7 +608,11 @@
 .editButton:disabled,
 .deleteButton:disabled,
 .blockButton:disabled,
-.clientPlusButton:disabled {
+.clientPlusButton:disabled,
+.bookingsDateNavButton:disabled,
+.bookingsTrainerTrigger:disabled,
+.bookingMarkButton:disabled,
+.bookingCancelIconButton:disabled {
   opacity: 0.85;
   cursor: not-allowed;
 }
@@ -675,6 +907,34 @@
   .trainersToolbar {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .bookingsToolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .bookingsDateControls {
+    justify-content: space-between;
+  }
+
+  .bookingsDateLabel {
+    min-width: 0;
+    text-align: center;
+  }
+
+  .bookingsTrainerDropdown {
+    width: 100%;
+  }
+
+  .bookingSlotRow {
+    grid-template-columns: 1fr;
+    row-gap: 8px;
+  }
+
+  .bookingSlotRight {
+    width: 100%;
+    justify-content: flex-end;
   }
 
   .searchBox {
