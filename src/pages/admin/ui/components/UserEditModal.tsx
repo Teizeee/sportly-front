@@ -1,4 +1,5 @@
 import { useEscapeKey } from '@shared/lib/dom/useEscapeKey'
+import { DEFAULT_AVATAR_URL } from '@shared/lib/ui/defaultAvatar'
 import type { EditingPanelText } from '../../model/editingPanel.constants'
 import styles from './EditingPanel.module.css'
 
@@ -68,6 +69,8 @@ export function UserEditModal({
   onClose,
 }: UserEditModalProps) {
   const resolvedPasswordPlaceholder = passwordPlaceholder ?? text.passwordPlaceholder
+  const resolvedAvatarUrl = isAvatarVisible && avatarUrl ? avatarUrl : DEFAULT_AVATAR_URL
+  const shouldShowAvatar = isTrainerEditing || avatarUrl.trim().length > 0
   useEscapeKey(onClose, isOpen)
 
   if (!isOpen) {
@@ -79,9 +82,18 @@ export function UserEditModal({
       <div className={styles.editModalCard} role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
         {title ? <h3 className={styles.editModalTitle}>{title}</h3> : null}
 
-        {isTrainerEditing && isAvatarVisible ? (
+        {shouldShowAvatar ? (
           <div className={styles.avatarBox}>
-            <img src={avatarUrl} alt="" className={styles.avatarImage} onError={onAvatarError} />
+            <img
+              src={resolvedAvatarUrl}
+              alt=""
+              className={styles.avatarImage}
+              onError={(event) => {
+                event.currentTarget.onerror = null
+                event.currentTarget.src = DEFAULT_AVATAR_URL
+                onAvatarError()
+              }}
+            />
           </div>
         ) : null}
 

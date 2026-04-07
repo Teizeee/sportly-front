@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
+import { type ChangeEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { API_BASE_URL } from '@shared/config/api'
 import { clearAccessToken } from '@shared/lib/auth/tokenStorage'
 import { ApiError } from '@shared/lib/http/ApiError'
+import { DEFAULT_AVATAR_URL } from '@shared/lib/ui/defaultAvatar'
 import { DashboardShell } from '@shared/ui/dashboard-shell/DashboardShell'
 import { SectionCard } from '@shared/ui/section-card/SectionCard'
-import { fetchCurrentGymAdmin, fetchGymSubscriptionText, updateGymById } from '../api/gymDashboardApi'
+import { fetchCurrentGymAdmin, fetchGymSubscriptionText, updateGymById, uploadGymPhoto } from '../api/gymDashboardApi'
 import { gymWorkDays } from '../../admin/model/editingPanel.constants'
 import { normalizeInputTime, toInputHour } from '../../admin/model/editingPanel.utils'
 import { formatSubscriptionEndDate, getGymSubscriptionWarning } from '../model/subscription'
@@ -62,10 +63,13 @@ export function GymSettingsPage() {
   const [error, setError] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saveSuccess, setSaveSuccess] = useState<string | null>(null)
+  const [isAvatarUploading, setIsAvatarUploading] = useState(false)
+  const [avatarVersion, setAvatarVersion] = useState<number | null>(null)
   const [subscriptionText, setSubscriptionText] = useState('')
   const [me, setMe] = useState<CurrentGymAdmin | null>(null)
   const [formState, setFormState] = useState<GymSettingsFormState>(() => buildInitialFormState(null))
   const [isAvatarVisible, setIsAvatarVisible] = useState(true)
+  const avatarInputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     const load = async () => {
@@ -199,12 +203,48 @@ export function GymSettingsPage() {
     }
   }
 
+  const handleAvatarClick = () => {
+    if (isAvatarUploading || isSaving) {
+      return
+    }
+
+    avatarInputRef.current?.click()
+  }
+
+  const handleAvatarFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+
+    if (!file || !me?.gym || isAvatarUploading || isSaving) {
+      return
+    }
+
+    setIsAvatarUploading(true)
+    setSaveError(null)
+    setSaveSuccess(null)
+
+    try {
+      await uploadGymPhoto(me.gym.id, file)
+      setIsAvatarVisible(true)
+      setAvatarVersion(Date.now())
+      setSaveSuccess('Аватарка зала обновлена')
+    } catch {
+      setSaveError('Не удалось загрузить аватарку зала')
+    } finally {
+      setIsAvatarUploading(false)
+    }
+  }
+
   const gymTitle = me?.gym?.gym_application?.title ?? 'Без названия'
   const gymAddress = me?.gym?.gym_application?.address ?? '-'
   const gymPhone = me?.gym?.gym_application?.phone ?? '-'
   const subscriptionEndDate = me?.gym?.subscription?.end_date ?? null
   const subscriptionWarning = getGymSubscriptionWarning(subscriptionEndDate)
-  const gymAvatarUrl = me?.gym?.id ? `${resolveAvatarBaseUrl()}gyms/${me.gym.id}.jpg` : ''
+  const gymAvatarUrl =
+    me?.gym?.id
+      ? `${resolveAvatarBaseUrl()}gyms/${me.gym.id}.jpg${avatarVersion ? `?v=${encodeURIComponent(String(avatarVersion))}` : ''}`
+      : ''
+  const resolvedGymAvatarUrl = isAvatarVisible && gymAvatarUrl ? gymAvatarUrl : DEFAULT_AVATAR_URL
   const hasGym = Boolean(me?.gym)
 
   const canSave = useMemo(
@@ -268,9 +308,32 @@ export function GymSettingsPage() {
             <SectionCard>
               <section className={styles.innerCard}>
                 <div className={styles.avatarBox}>
-                  {gymAvatarUrl && isAvatarVisible ? (
-                    <img src={gymAvatarUrl} alt="" className={styles.avatarImage} onError={() => setIsAvatarVisible(false)} />
-                  ) : null}
+                  <button
+                    type="button"
+                    className={styles.avatarButton}
+                    onClick={handleAvatarClick}
+                    disabled={isAvatarUploading || isSaving}
+                  >
+                    <img
+                      src={resolvedGymAvatarUrl}
+                      alt=""
+                      className={styles.avatarImage}
+                      onError={(event) => {
+                        event.currentTarget.onerror = null
+                        event.currentTarget.src = DEFAULT_AVATAR_URL
+                        setIsAvatarVisible(false)
+                      }}
+                    />
+                    <input
+                      ref={avatarInputRef}
+                      type="file"
+                      accept="image/*"
+                      className={styles.hiddenFileInput}
+                      onChange={(event) => void handleAvatarFileChange(event)}
+                      disabled={isAvatarUploading || isSaving}
+                      tabIndex={-1}
+                    />
+                  </button>
                 </div>
 
                 <div className={styles.formRow}>

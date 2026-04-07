@@ -1,4 +1,6 @@
+import { type ChangeEvent, useRef } from 'react'
 import { useEscapeKey } from '@shared/lib/dom/useEscapeKey'
+import { DEFAULT_AVATAR_URL } from '@shared/lib/ui/defaultAvatar'
 import type { EditingPanelText, GymWorkDay } from '../../model/editingPanel.constants'
 import styles from './EditingPanel.module.css'
 
@@ -16,6 +18,7 @@ type GymEditModalProps = {
   schedule: Record<number, GymScheduleItem>
   workDays: GymWorkDay[]
   isSaving: boolean
+  isAvatarUploading: boolean
   error: string | null
   text: EditingPanelText
   onTitleChange: (value: string) => void
@@ -25,6 +28,7 @@ type GymEditModalProps = {
   onSubscriptionUntilChange: (value: string) => void
   onScheduleChange: (dayOfWeek: number, field: 'open' | 'close', value: string) => void
   onAvatarError: () => void
+  onAvatarFileChange: (event: ChangeEvent<HTMLInputElement>) => void
   onSubmit: () => void
   onClose: () => void
 }
@@ -41,6 +45,7 @@ export function GymEditModal({
   schedule,
   workDays,
   isSaving,
+  isAvatarUploading,
   error,
   text,
   onTitleChange,
@@ -50,9 +55,12 @@ export function GymEditModal({
   onSubscriptionUntilChange,
   onScheduleChange,
   onAvatarError,
+  onAvatarFileChange,
   onSubmit,
   onClose,
 }: GymEditModalProps) {
+  const resolvedAvatarUrl = isAvatarVisible && avatarUrl ? avatarUrl : DEFAULT_AVATAR_URL
+  const avatarInputRef = useRef<HTMLInputElement | null>(null)
   useEscapeKey(onClose, isOpen)
 
   if (!isOpen) {
@@ -64,7 +72,32 @@ export function GymEditModal({
       <div className={styles.gymEditModalCard} role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
         <div className={styles.gymTopRow}>
           <div className={styles.avatarBox}>
-            {isAvatarVisible ? <img src={avatarUrl} alt="" className={styles.avatarImage} onError={onAvatarError} /> : null}
+            <button
+              type="button"
+              className={styles.avatarButton}
+              onClick={() => avatarInputRef.current?.click()}
+              disabled={isSaving || isAvatarUploading}
+            >
+              <img
+                src={resolvedAvatarUrl}
+                alt=""
+                className={styles.avatarImage}
+                onError={(event) => {
+                  event.currentTarget.onerror = null
+                  event.currentTarget.src = DEFAULT_AVATAR_URL
+                  onAvatarError()
+                }}
+              />
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/*"
+                className={styles.hiddenFileInput}
+                onChange={onAvatarFileChange}
+                disabled={isSaving || isAvatarUploading}
+                tabIndex={-1}
+              />
+            </button>
           </div>
         </div>
 

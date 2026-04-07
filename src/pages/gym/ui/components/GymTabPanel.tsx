@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { editingPanelText } from '@pages/admin/model/editingPanel.constants'
+import { resolveAvatarBaseUrl } from '@pages/admin/model/editingPanel.utils'
 import { ConfirmActionModal } from '@pages/admin/ui/components/ConfirmActionModal'
 import { UserEditModal } from '@pages/admin/ui/components/UserEditModal'
 import { useClickOutside } from '@shared/lib/dom/useClickOutside'
@@ -234,6 +235,7 @@ export function GymTabPanel({
   const [editPassword, setEditPassword] = useState('')
   const [editTrainerError, setEditTrainerError] = useState<string | null>(null)
   const [isEditTrainerSaving, setIsEditTrainerSaving] = useState(false)
+  const [isEditTrainerAvatarVisible, setIsEditTrainerAvatarVisible] = useState(true)
   const [isCreateTrainerModalOpen, setIsCreateTrainerModalOpen] = useState(false)
   const [isCreatingTrainer, setIsCreatingTrainer] = useState(false)
   const [trainerCreateError, setTrainerCreateError] = useState<string | null>(null)
@@ -288,6 +290,7 @@ export function GymTabPanel({
     setEditEmail(trainer.email)
     setEditDescription(trainer.description ?? '')
     setEditPassword(trainer.password ?? '')
+    setIsEditTrainerAvatarVisible(true)
     setEditTrainerError(null)
   }
 
@@ -304,6 +307,7 @@ export function GymTabPanel({
     setEditEmail('')
     setEditDescription('')
     setEditPassword('')
+    setIsEditTrainerAvatarVisible(true)
     setEditTrainerError(null)
   }
 
@@ -725,6 +729,7 @@ export function GymTabPanel({
       return fullName.includes(query) || phone.includes(query)
     })
   }, [trainerList, trainerSearch])
+  const trainerAvatarUrl = editingTrainer ? `${resolveAvatarBaseUrl()}avatars/${editingTrainer.user_id}.jpg` : ''
 
   if (activeTab === 'trainers') {
     return (
@@ -823,8 +828,8 @@ export function GymTabPanel({
         <UserEditModal
           isOpen={Boolean(editingTrainer)}
           isTrainerEditing
-          isAvatarVisible={false}
-          avatarUrl=""
+          isAvatarVisible={isEditTrainerAvatarVisible}
+          avatarUrl={trainerAvatarUrl}
           lastName={editLastName}
           firstName={editFirstName}
           patronymic={editPatronymic}
@@ -845,7 +850,7 @@ export function GymTabPanel({
           onEmailChange={setEditEmail}
           onDescriptionChange={setEditDescription}
           onPasswordChange={setEditPassword}
-          onAvatarError={noop}
+          onAvatarError={() => setIsEditTrainerAvatarVisible(false)}
           onSubmit={() => void submitEditTrainer()}
           onDelete={requestDeleteFromEditModal}
           onClose={closeEditTrainerModal}

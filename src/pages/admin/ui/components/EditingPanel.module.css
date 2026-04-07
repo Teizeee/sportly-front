@@ -275,8 +275,13 @@
 }
 
 .avatarBox {
+  position: relative;
+  flex: 0 0 140px;
+  align-self: flex-start;
   width: 140px;
   height: 140px;
+  min-width: 140px;
+  min-height: 140px;
   border: 1px solid #2a2821;
   background: transparent;
   overflow: hidden;
@@ -287,6 +292,23 @@
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+.avatarButton {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
+
+.avatarButton:disabled {
+  cursor: not-allowed;
+}
+
+.hiddenFileInput {
+  display: none;
 }
 
 .editLabel {

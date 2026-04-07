@@ -197,3 +197,13 @@ export async function updateGymById(
     body: payload,
   })
 }
+
+export async function uploadGymPhoto(gymId: string, file: File): Promise<void> {
+  const body = new FormData()
+  body.append('file', file)
+
+  await httpClient.request(`/gyms/${gymId}/photos`, {
+    method: 'POST',
+    body,
+  })
+}

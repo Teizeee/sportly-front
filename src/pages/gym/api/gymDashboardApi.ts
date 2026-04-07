@@ -205,6 +205,16 @@ export async function updateGymById(
   })
 }
 
+export async function uploadGymPhoto(gymId: string, file: File): Promise<void> {
+  const body = new FormData()
+  body.append('file', file)
+
+  await httpClient.request(`/gyms/${gymId}/photos`, {
+    method: 'POST',
+    body,
+  })
+}
+
 export async function createGymMembership(payload: {
   name: string
   description: string

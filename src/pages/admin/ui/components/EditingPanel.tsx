@@ -1,7 +1,17 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { type ChangeEvent, useCallback, useEffect, useMemo, useState } from 'react'
 import type { EditableGym, EditableUser } from '@entities/admin'
 import { TabNav } from '@shared/ui/tab-nav/TabNav'
-import { blockGym, blockUser, fetchGyms, fetchUsersByRole, unblockGym, unblockUser, updateGymById, updateUserById } from '../../api/adminApi'
+import {
+  blockGym,
+  blockUser,
+  fetchGyms,
+  fetchUsersByRole,
+  unblockGym,
+  unblockUser,
+  updateGymById,
+  updateUserById,
+  uploadGymPhoto,
+} from '../../api/adminApi'
 import {
   editingPanelText as text,
   editingTabs,
@@ -62,6 +72,8 @@ export function EditingPanel() {
   const [editGymSubscriptionUntil, setEditGymSubscriptionUntil] = useState('')
   const [editGymSchedule, setEditGymSchedule] = useState<Record<number, { id: string; open: string; close: string }>>({})
   const [isGymAvatarVisible, setIsGymAvatarVisible] = useState(true)
+  const [isGymAvatarUploading, setIsGymAvatarUploading] = useState(false)
+  const [gymAvatarVersion, setGymAvatarVersion] = useState<number | null>(null)
   const [editGymError, setEditGymError] = useState<string | null>(null)
   const [isGymEditSaving, setIsGymEditSaving] = useState(false)
 
@@ -229,11 +241,13 @@ export function EditingPanel() {
     setEditGymSubscriptionUntil(gym.subscription_end_date ?? '')
     setEditGymSchedule(scheduleByDay)
     setIsGymAvatarVisible(true)
+    setGymAvatarVersion(null)
+    setIsGymAvatarUploading(false)
     setEditGymError(null)
   }
 
   const closeGymEditModal = () => {
-    if (isGymEditSaving) return
+    if (isGymEditSaving || isGymAvatarUploading) return
     setEditGymTarget(null)
     setEditGymTitle('')
     setEditGymPhone('')
@@ -242,7 +256,31 @@ export function EditingPanel() {
     setEditGymSubscriptionUntil('')
     setEditGymSchedule({})
     setIsGymAvatarVisible(true)
+    setGymAvatarVersion(null)
+    setIsGymAvatarUploading(false)
     setEditGymError(null)
+  }
+
+  const handleGymAvatarFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+
+    if (!file || !editGymTarget || isGymAvatarUploading || isGymEditSaving) {
+      return
+    }
+
+    setEditGymError(null)
+    setIsGymAvatarUploading(true)
+
+    try {
+      await uploadGymPhoto(editGymTarget.id, file)
+      setIsGymAvatarVisible(true)
+      setGymAvatarVersion(Date.now())
+    } catch {
+      setEditGymError('Не удалось загрузить аватарку зала')
+    } finally {
+      setIsGymAvatarUploading(false)
+    }
   }
 
   const updateGymScheduleField = (dayOfWeek: number, field: 'open' | 'close', value: string) => {
@@ -361,9 +399,11 @@ export function EditingPanel() {
     }
   }
 
-  const isTrainerEditing = editTarget?.role === 'TRAINER'
+  const isTrainerEditing = (editTarget?.role ?? '').toUpperCase() === 'TRAINER'
   const avatarUrl = editTarget ? `${resolveAvatarBaseUrl()}avatars/${editTarget.id}.jpg` : ''
-  const gymAvatarUrl = editGymTarget ? `${resolveAvatarBaseUrl()}gyms/${editGymTarget.id}.jpg` : ''
+  const gymAvatarUrl = editGymTarget
+    ? `${resolveAvatarBaseUrl()}gyms/${editGymTarget.id}.jpg${gymAvatarVersion ? `?v=${encodeURIComponent(String(gymAvatarVersion))}` : ''}`
+    : ''
 
   return (
     <div className={styles.wrapper}>
@@ -458,6 +498,7 @@ export function EditingPanel() {
         schedule={editGymSchedule}
         workDays={gymWorkDays}
         isSaving={isGymEditSaving}
+        isAvatarUploading={isGymAvatarUploading}
         error={editGymError}
         text={text}
         onTitleChange={setEditGymTitle}
@@ -467,6 +508,9 @@ export function EditingPanel() {
         onSubscriptionUntilChange={setEditGymSubscriptionUntil}
         onScheduleChange={updateGymScheduleField}
         onAvatarError={() => setIsGymAvatarVisible(false)}
+        onAvatarFileChange={(event) => {
+          void handleGymAvatarFileChange(event)
+        }}
         onSubmit={() => {
           void submitGymEdit()
         }}

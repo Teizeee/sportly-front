@@ -87,11 +87,28 @@
   overflow: hidden;
 }
 
+.avatarButton {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
+
+.avatarButton:disabled {
+  cursor: not-allowed;
+}
+
 .avatarImage {
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+.hiddenFileInput {
+  display: none;
 }
 
 .formRow {
