@@ -18,6 +18,68 @@
   gap: 12px;
 }
 
+.reviewsSection {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.reviewsRating {
+  margin: 0 0 10px;
+  color: #111;
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: clamp(28px, 1.8vw, 42px);
+  line-height: 1.1;
+}
+
+.reviewCard {
+  border-top: 1px solid #a5a091;
+  padding: 10px 0 14px;
+}
+
+.reviewTopRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.reviewMeta {
+  margin: 0;
+  color: #111;
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: clamp(26px, 1.7vw, 40px);
+  line-height: 1.1;
+}
+
+.reviewText {
+  margin: 8px 0 0;
+  color: #111;
+  font-family: 'Times New Roman', Georgia, serif;
+  font-size: clamp(28px, 1.9vw, 42px);
+  line-height: 1.25;
+}
+
+.reviewStars {
+  display: inline-flex;
+  gap: 2px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.reviewStarFilled,
+.reviewStarEmpty {
+  font-size: clamp(34px, 2.2vw, 48px);
+}
+
+.reviewStarFilled {
+  color: #121212;
+}
+
+.reviewStarEmpty {
+  color: #7a776e;
+}
+
 .trainersToolbar {
   display: flex;
   align-items: center;
@@ -373,6 +435,11 @@
 
   .trainerActions {
     justify-content: flex-start;
+  }
+
+  .reviewTopRow {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .modalCard {

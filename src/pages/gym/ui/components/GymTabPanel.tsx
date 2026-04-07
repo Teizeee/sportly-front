@@ -13,6 +13,7 @@ import {
   deleteGymMembership,
   deleteGymTrainerPackage,
   deleteGymUserAccount,
+  fetchGymReviews,
   fetchGymTrainers,
   fetchGymTrainerUsers,
   updateGymUserById,
@@ -20,7 +21,7 @@ import {
   updateGymTrainerPackage,
 } from '../../api/gymDashboardApi'
 import { gymTabs } from '../../model/gymTabs'
-import type { GymTabKey, GymTrainerListItem, GymTrainerOption, MembershipType, TrainerPackage } from '../../model/types'
+import type { GymReview, GymTabKey, GymTrainerListItem, GymTrainerOption, MembershipType, TrainerPackage } from '../../model/types'
 import styles from './GymTabPanel.module.css'
 
 type GymTabPanelProps = {
@@ -185,6 +186,51 @@ function normalizePhone(phone: string | null): string {
   return trimmed && trimmed.length > 0 ? trimmed : '-'
 }
 
+function formatReviewAuthor(review: GymReview): string {
+  const fullName = [review.author.first_name, review.author.last_name, review.author.patronymic ?? '']
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0)
+    .join(' ')
+
+  return fullName || 'Пользователь'
+}
+
+function formatReviewDate(isoDate: string): string {
+  const date = new Date(isoDate)
+
+  if (Number.isNaN(date.getTime())) {
+    return '-'
+  }
+
+  return new Intl.DateTimeFormat('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
+  }).format(date)
+}
+
+function clampRating(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 0
+  }
+
+  return Math.max(0, Math.min(5, Math.round(value)))
+}
+
+function ReviewStars({ rating }: { rating: number }) {
+  const normalized = clampRating(rating)
+
+  return (
+    <span className={styles.reviewStars} aria-label={`Рейтинг ${normalized} из 5`}>
+      {Array.from({ length: 5 }, (_, index) => (
+        <span key={index} className={index < normalized ? styles.reviewStarFilled : styles.reviewStarEmpty} aria-hidden="true">
+          ★
+        </span>
+      ))}
+    </span>
+  )
+}
+
 export function GymTabPanel({
   activeTab,
   membershipTypes,
@@ -240,6 +286,9 @@ export function GymTabPanel({
   const [isCreatingTrainer, setIsCreatingTrainer] = useState(false)
   const [trainerCreateError, setTrainerCreateError] = useState<string | null>(null)
   const [trainerCreateForm, setTrainerCreateForm] = useState<TrainerCreateFormState>(initialTrainerCreateFormState)
+  const [reviews, setReviews] = useState<GymReview[]>([])
+  const [isReviewsLoading, setIsReviewsLoading] = useState(false)
+  const [reviewsError, setReviewsError] = useState<string | null>(null)
 
   const isMembershipBusy = isMembershipSubmitting || isMembershipDeleting
   const isPackageBusy = isPackageSubmitting || isPackageDeleting
@@ -342,12 +391,41 @@ export function GymTabPanel({
     }
   }
 
+  const loadReviews = async () => {
+    if (!gymId) {
+      setReviews([])
+      setReviewsError('Не удалось определить зал для загрузки отзывов')
+      return
+    }
+
+    setIsReviewsLoading(true)
+    setReviewsError(null)
+
+    try {
+      const payload = await fetchGymReviews(gymId)
+      setReviews(payload)
+    } catch {
+      setReviews([])
+      setReviewsError('Не удалось загрузить отзывы')
+    } finally {
+      setIsReviewsLoading(false)
+    }
+  }
+
   useEffect(() => {
     if (activeTab !== 'trainers') {
       return
     }
 
     void loadTrainerList()
+  }, [activeTab, gymId])
+
+  useEffect(() => {
+    if (activeTab !== 'reviews') {
+      return
+    }
+
+    void loadReviews()
   }, [activeTab, gymId])
 
   useEscapeKey(() => {
@@ -730,6 +808,14 @@ export function GymTabPanel({
     })
   }, [trainerList, trainerSearch])
   const trainerAvatarUrl = editingTrainer ? `${resolveAvatarBaseUrl()}avatars/${editingTrainer.user_id}.jpg` : ''
+  const averageRating = useMemo(() => {
+    if (reviews.length === 0) {
+      return null
+    }
+
+    const sum = reviews.reduce((accumulator, review) => accumulator + review.rating, 0)
+    return sum / reviews.length
+  }, [reviews])
 
   if (activeTab === 'trainers') {
     return (
@@ -855,6 +941,36 @@ export function GymTabPanel({
           onDelete={requestDeleteFromEditModal}
           onClose={closeEditTrainerModal}
         />
+      </section>
+    )
+  }
+
+  if (activeTab === 'reviews') {
+    const averageRatingLabel = averageRating === null ? '-' : averageRating.toLocaleString('ru-RU', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+
+    return (
+      <section className={styles.reviewsSection}>
+        <p className={styles.reviewsRating}>Рейтинг: {averageRatingLabel}</p>
+
+        {isReviewsLoading ? <p className={styles.placeholder}>Загрузка отзывов...</p> : null}
+        {reviewsError ? <p className={styles.placeholder}>{reviewsError}</p> : null}
+        {!isReviewsLoading && !reviewsError && reviews.length === 0 ? (
+          <p className={styles.placeholder}>У вашего зала пока нет отзывов</p>
+        ) : null}
+
+        {!isReviewsLoading && !reviewsError
+          ? reviews.map((review) => (
+              <article key={review.id} className={styles.reviewCard}>
+                <div className={styles.reviewTopRow}>
+                  <p className={styles.reviewMeta}>
+                    <strong>{formatReviewAuthor(review)}</strong> {formatReviewDate(review.created_at)}
+                  </p>
+                  <ReviewStars rating={review.rating} />
+                </div>
+                <p className={styles.reviewText}>{review.comment?.trim().length ? review.comment : 'Без комментария'}</p>
+              </article>
+            ))
+          : null}
       </section>
     )
   }

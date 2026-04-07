@@ -62,6 +62,23 @@ export type TrainerPackage = {
   trainer: TrainerPayload | null
 }
 
+export type ReviewAuthor = {
+  id: string
+  first_name: string
+  last_name: string
+  patronymic: string | null
+}
+
+export type GymReview = {
+  id: string
+  user_id: string
+  gym_id: string
+  rating: number
+  comment: string | null
+  created_at: string
+  author: ReviewAuthor
+}
+
 export type GymTrainerOption = {
   trainer_id: string
   label: string

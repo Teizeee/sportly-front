@@ -1,6 +1,7 @@
 import { httpClient } from '@shared/lib/http/httpClient'
 import type {
   CurrentGymAdmin,
+  GymReview,
   GymApplicationPayload,
   GymTrainerListItem,
   GymTrainerOption,
@@ -126,6 +127,50 @@ function toTrainerPackage(raw: unknown): TrainerPackage | null {
             : null,
         }
       : null,
+  }
+}
+
+function toGymReview(raw: unknown): GymReview | null {
+  const source = asRecord(raw)
+
+  if (!source) {
+    return null
+  }
+
+  const id = typeof source.id === 'string' ? source.id : null
+  const userId = typeof source.user_id === 'string' ? source.user_id : null
+  const gymId = typeof source.gym_id === 'string' ? source.gym_id : null
+  const rating = typeof source.rating === 'number' ? source.rating : null
+  const comment = typeof source.comment === 'string' ? source.comment : null
+  const createdAt = typeof source.created_at === 'string' ? source.created_at : null
+  const authorRaw = asRecord(source.author)
+
+  if (!id || !userId || !gymId || rating === null || !createdAt || !authorRaw) {
+    return null
+  }
+
+  const authorId = typeof authorRaw.id === 'string' ? authorRaw.id : null
+  const authorFirstName = typeof authorRaw.first_name === 'string' ? authorRaw.first_name.trim() : ''
+  const authorLastName = typeof authorRaw.last_name === 'string' ? authorRaw.last_name.trim() : ''
+  const authorPatronymic = typeof authorRaw.patronymic === 'string' ? authorRaw.patronymic.trim() : null
+
+  if (!authorId || !authorFirstName || !authorLastName) {
+    return null
+  }
+
+  return {
+    id,
+    user_id: userId,
+    gym_id: gymId,
+    rating,
+    comment,
+    created_at: createdAt,
+    author: {
+      id: authorId,
+      first_name: authorFirstName,
+      last_name: authorLastName,
+      patronymic: authorPatronymic && authorPatronymic.length > 0 ? authorPatronymic : null,
+    },
   }
 }
 
@@ -377,4 +422,12 @@ export async function deleteGymTrainerPackage(trainerPackageId: string): Promise
   await httpClient.request(`/gyms/packages/${trainerPackageId}`, {
     method: 'DELETE',
   })
+}
+
+export async function fetchGymReviews(gymId: string): Promise<GymReview[]> {
+  const payload = await httpClient.request<unknown>(`/gyms/${gymId}/reviews`)
+
+  return asArray(payload)
+    .map(toGymReview)
+    .filter((item): item is GymReview => item !== null)
 }
