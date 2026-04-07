@@ -3,7 +3,7 @@ import type { ComponentProps } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import { register } from '@features/auth/api/register'
-import { ApiError } from '@shared/lib/http/ApiError'
+import { handleAuthErrorToast } from '@features/auth/lib/authErrorToast'
 import styles from '@features/auth/ui/LoginForm.module.css'
 
 export function RegisterForm() {
@@ -44,19 +44,10 @@ export function RegisterForm() {
       toast.success('Успешно зарегистрирован')
       navigate('/login', { replace: true })
     } catch (error) {
-      if (error instanceof ApiError) {
-        if (error.status >= 500) {
-          toast.error('Внутренняя ошибка сервиса: повторите попытку позже')
-          return
-        }
-
-        if (error.status >= 400 && error.status < 500) {
-          toast.warn('Ошибка регистрации: проверьте введенные данные')
-          return
-        }
-      }
-
-      toast.error('Внутренняя ошибка сервиса: повторите попытку позже')
+      handleAuthErrorToast({
+        error,
+        clientErrorText: 'Ошибка регистрации: проверьте введенные данные',
+      })
     } finally {
       setIsSubmitting(false)
     }
@@ -131,15 +122,10 @@ export function RegisterForm() {
           Авторизация
         </button>
 
-        <button
-          className={`${styles.submitButton} ${styles.submitButtonWide}`}
-          type="submit"
-          disabled={!canSubmit}
-        >
+        <button className={`${styles.submitButton} ${styles.submitButtonWide}`} type="submit" disabled={!canSubmit}>
           {isSubmitting ? 'Регистрация...' : 'Зарегистрироваться'}
         </button>
       </div>
     </form>
   )
 }
-

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { fetchCurrentGymAdmin, fetchGymSubscriptionText } from '../api/gymDashboardApi'
 import type { CurrentGymAdmin, GymApplicationPayload, MembershipType, TrainerPackage } from './types'
 
@@ -32,8 +32,13 @@ const initialState: GymDashboardState = {
 
 export function useGymDashboard(): UseGymDashboardResult {
   const [state, setState] = useState<GymDashboardState>(initialState)
+  const refreshRequestIdRef = useRef(0)
 
   const refresh = useCallback(async () => {
+    const requestId = refreshRequestIdRef.current + 1
+    refreshRequestIdRef.current = requestId
+    const isLatestRequest = () => refreshRequestIdRef.current === requestId
+
     setState((prev) => ({
       ...prev,
       isLoading: true,
@@ -44,6 +49,10 @@ export function useGymDashboard(): UseGymDashboardResult {
     try {
       const me = await fetchCurrentGymAdmin()
       const applicationDraft = me.gym_application ?? me.gym?.gym_application ?? null
+
+      if (!isLatestRequest()) {
+        return
+      }
 
       setState((prev) => ({
         ...prev,
@@ -60,11 +69,19 @@ export function useGymDashboard(): UseGymDashboardResult {
         try {
           const subscriptionTextPayload = await fetchGymSubscriptionText()
 
+          if (!isLatestRequest()) {
+            return
+          }
+
           setState((prev) => ({
             ...prev,
             subscriptionText: subscriptionTextPayload?.description ?? '',
           }))
         } catch {
+          if (!isLatestRequest()) {
+            return
+          }
+
           setState((prev) => ({
             ...prev,
             subscriptionText: '',
@@ -72,6 +89,10 @@ export function useGymDashboard(): UseGymDashboardResult {
         }
       }
     } catch {
+      if (!isLatestRequest()) {
+        return
+      }
+
       setState((prev) => ({
         ...prev,
         isLoading: false,

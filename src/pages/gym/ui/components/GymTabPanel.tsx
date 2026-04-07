@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { editingPanelText } from '@pages/admin/model/editingPanel.constants'
 import { resolveAvatarBaseUrl } from '@pages/admin/model/editingPanel.utils'
-import { ConfirmActionModal } from '@pages/admin/ui/components/ConfirmActionModal'
-import { UserEditModal } from '@pages/admin/ui/components/UserEditModal'
 import { useClickOutside } from '@shared/lib/dom/useClickOutside'
 import { useEscapeKey } from '@shared/lib/dom/useEscapeKey'
 import { ApiError } from '@shared/lib/http/ApiError'
@@ -30,9 +28,7 @@ import {
   updateGymMembership,
   updateGymTrainerPackage,
 } from '../../api/gymDashboardApi'
-import { gymTabs } from '../../model/gymTabs'
 import type {
-  BookingStatus,
   GymClientListItem,
   GymMembershipOption,
   GymPackageOption,
@@ -44,6 +40,27 @@ import type {
   TrainerSlotAvailability,
   TrainerPackage,
 } from '../../model/types'
+import {
+  buildPlaceholderLabel,
+  getTodayDateInputValue,
+  initialMembershipFormState,
+  initialTrainerCreateFormState,
+  initialTrainerPackageFormState,
+  normalizeDuration,
+  normalizePhone,
+  parsePrice,
+  parseSessionCount,
+  resolveTrainerLabelForPackage,
+  type MembershipDuration,
+  type MembershipFormState,
+  type TrainerCreateFormState,
+  type TrainerPackageFormState,
+} from './gymTabPanel.utils'
+import { GymBookingsTab } from './GymBookingsTab'
+import { GymClientsTab } from './GymClientsTab'
+import { GymReviewsTab } from './GymReviewsTab'
+import { GymServicesTab } from './GymServicesTab'
+import { GymTrainersTab } from './GymTrainersTab'
 import styles from './GymTabPanel.module.css'
 
 type GymTabPanelProps = {
@@ -58,301 +75,11 @@ type GymTabPanelProps = {
   onTrainerDeleted: () => Promise<void>
 }
 
-const membershipDurations = [1, 3, 6, 12] as const
-const noop = () => undefined
-
-type MembershipDuration = (typeof membershipDurations)[number]
 type ModalMode = 'create' | 'edit'
 type ClientActionMode = 'block' | 'unblock'
 type ClientAssignType = 'package' | 'membership'
 type ClientAssignOption = GymPackageOption | GymMembershipOption
 type BookingAttendanceStatus = 'VISITED' | 'NOT_VISITED'
-
-type MembershipFormState = {
-  name: string
-  price: string
-  durationMonths: MembershipDuration
-  description: string
-}
-
-type TrainerPackageFormState = {
-  name: string
-  price: string
-  sessionCount: string
-  trainerId: string
-  description: string
-}
-
-type TrainerCreateFormState = {
-  last_name: string
-  first_name: string
-  patronymic: string
-  phone: string
-  email: string
-  description: string
-  password: string
-}
-
-const initialMembershipFormState: MembershipFormState = {
-  name: '',
-  price: '',
-  durationMonths: 1,
-  description: '',
-}
-
-const initialTrainerPackageFormState: TrainerPackageFormState = {
-  name: '',
-  price: '',
-  sessionCount: '',
-  trainerId: '',
-  description: '',
-}
-
-const initialTrainerCreateFormState: TrainerCreateFormState = {
-  last_name: '',
-  first_name: '',
-  patronymic: '',
-  phone: '',
-  email: '',
-  description: '',
-  password: '',
-}
-
-function normalizeDuration(months: number): MembershipDuration {
-  return membershipDurations.includes(months as MembershipDuration) ? (months as MembershipDuration) : 1
-}
-
-function formatPrice(value: string): string {
-  const amount = Number(value)
-
-  if (!Number.isFinite(amount)) {
-    return value
-  }
-
-  return new Intl.NumberFormat('ru-RU', {
-    style: 'currency',
-    currency: 'RUB',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  }).format(amount)
-}
-
-function buildPlaceholderLabel(tab: GymTabKey): string {
-  return gymTabs.find((item) => item.key === tab)?.label ?? tab
-}
-
-function buildTrainerPackageTitle(packageItem: TrainerPackage): string {
-  const firstName = packageItem.trainer?.user?.first_name?.trim()
-  const lastName = packageItem.trainer?.user?.last_name?.trim()
-
-  if (!firstName || !lastName) {
-    return packageItem.name
-  }
-
-  return `${firstName} ${lastName[0]}. - ${packageItem.name}`
-}
-
-function resolveTrainerLabelForPackage(packageItem: TrainerPackage): string {
-  const firstName = packageItem.trainer?.user?.first_name?.trim()
-  const lastName = packageItem.trainer?.user?.last_name?.trim()
-
-  if (firstName && lastName) {
-    return `${firstName} ${lastName}`
-  }
-
-  return `Тренер ${packageItem.trainer_id.slice(0, 8)}`
-}
-
-function parsePrice(value: string): number | null {
-  const normalized = value.trim().replace(',', '.')
-
-  if (!normalized) {
-    return null
-  }
-
-  const parsed = Number(normalized)
-
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    return null
-  }
-
-  return parsed
-}
-
-function parseSessionCount(value: string): number | null {
-  const normalized = value.trim()
-
-  if (!normalized) {
-    return null
-  }
-
-  const parsed = Number(normalized)
-
-  if (!Number.isInteger(parsed) || parsed < 1) {
-    return null
-  }
-
-  return parsed
-}
-
-function formatDurationLabel(months: MembershipDuration): string {
-  if (months === 1) {
-    return '1 месяц'
-  }
-
-  if (months === 3 || months === 6) {
-    return `${months} месяца`
-  }
-
-  return `${months} месяцев`
-}
-
-function normalizePhone(phone: string | null): string {
-  const trimmed = phone?.trim()
-  return trimmed && trimmed.length > 0 ? trimmed : '-'
-}
-
-function formatSessionsLeft(sessionsLeft: number | null): string {
-  if (sessionsLeft === null || !Number.isFinite(sessionsLeft)) {
-    return '-'
-  }
-
-  return `${sessionsLeft} занятий`
-}
-
-function formatReviewAuthor(review: GymReview): string {
-  const fullName = [review.author.first_name, review.author.last_name, review.author.patronymic ?? '']
-    .map((item) => item.trim())
-    .filter((item) => item.length > 0)
-    .join(' ')
-
-  return fullName || 'Пользователь'
-}
-
-function formatReviewDate(isoDate: string): string {
-  const date = new Date(isoDate)
-
-  if (Number.isNaN(date.getTime())) {
-    return '-'
-  }
-
-  return new Intl.DateTimeFormat('ru-RU', {
-    day: '2-digit',
-    month: '2-digit',
-    year: '2-digit',
-  }).format(date)
-}
-
-function clampRating(value: number): number {
-  if (!Number.isFinite(value)) {
-    return 0
-  }
-
-  return Math.max(0, Math.min(5, Math.round(value)))
-}
-
-function getTodayDateInputValue(): string {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = String(now.getMonth() + 1).padStart(2, '0')
-  const day = String(now.getDate()).padStart(2, '0')
-
-  return `${year}-${month}-${day}`
-}
-
-function shiftDateByDays(dateValue: string, days: number): string {
-  const date = new Date(`${dateValue}T00:00:00`)
-
-  if (Number.isNaN(date.getTime())) {
-    return getTodayDateInputValue()
-  }
-
-  date.setDate(date.getDate() + days)
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-
-  return `${year}-${month}-${day}`
-}
-
-function formatBookingDateLabel(dateValue: string): string {
-  const date = new Date(`${dateValue}T00:00:00`)
-
-  if (Number.isNaN(date.getTime())) {
-    return '-'
-  }
-
-  return new Intl.DateTimeFormat('ru-RU', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  }).format(date)
-}
-
-function formatSlotTimeLabel(dateTime: string): string {
-  const date = new Date(dateTime)
-
-  if (Number.isNaN(date.getTime())) {
-    return '--:--'
-  }
-
-  return new Intl.DateTimeFormat('ru-RU', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  }).format(date)
-}
-
-function formatBookedUserName(slot: TrainerSlotAvailability): string {
-  const bookedUser = slot.booked_user
-
-  if (!bookedUser) {
-    return 'Нет бронирований'
-  }
-
-  const firstName = bookedUser.first_name.trim()
-  const lastInitial = bookedUser.last_name.trim().charAt(0)
-
-  if (!firstName) {
-    return 'Нет бронирований'
-  }
-
-  if (!lastInitial) {
-    return firstName
-  }
-
-  return `${firstName} ${lastInitial}.`
-}
-
-function resolveBookingStatusText(status: BookingStatus): string {
-  if (status === 'VISITED') {
-    return 'Посетил'
-  }
-
-  if (status === 'NOT_VISITED') {
-    return 'Отсутствовал'
-  }
-
-  if (status === 'CANCELLED') {
-    return 'Отменено'
-  }
-
-  return ''
-}
-
-function ReviewStars({ rating }: { rating: number }) {
-  const normalized = clampRating(rating)
-
-  return (
-    <span className={styles.reviewStars} aria-label={`Рейтинг ${normalized} из 5`}>
-      {Array.from({ length: 5 }, (_, index) => (
-        <span key={index} className={index < normalized ? styles.reviewStarFilled : styles.reviewStarEmpty} aria-hidden="true">
-          ★
-        </span>
-      ))}
-    </span>
-  )
-}
 
 export function GymTabPanel({
   activeTab,
@@ -1320,522 +1047,132 @@ export function GymTabPanel({
 
   if (activeTab === 'trainers') {
     return (
-      <section className={styles.trainersSection}>
-        <div className={styles.trainersToolbar}>
-          <label className={styles.searchBox}>
-            <input
-              className={styles.searchInput}
-              type="search"
-              placeholder="Поиск"
-              value={trainerSearch}
-              onChange={(event) => setTrainerSearch(event.target.value)}
-            />
-          </label>
-
-          <button className={styles.addButton} type="button" onClick={openCreateTrainerModal}>
-            + Добавить
-          </button>
-        </div>
-
-        <div className={styles.trainersHeader}>
-          <span>ФИО</span>
-          <span>Номер</span>
-          <span />
-        </div>
-
-        {isTrainerListLoading ? <p className={styles.placeholder}>Загрузка тренеров...</p> : null}
-        {trainerListError ? <p className={styles.placeholder}>{trainerListError}</p> : null}
-        {!isTrainerListLoading && !trainerListError && filteredTrainers.length === 0 ? (
-          <p className={styles.placeholder}>Тренеры не найдены</p>
-        ) : null}
-
-        {!isTrainerListLoading && !trainerListError
-          ? filteredTrainers.map((trainer) => (
-              <div key={trainer.user_id} className={styles.trainerRow}>
-                <span className={styles.trainerName}>{trainer.full_name}</span>
-                <span className={styles.trainerPhone}>{normalizePhone(trainer.phone)}</span>
-
-                <div className={styles.trainerActions}>
-                  <button className={styles.deleteButton} type="button" onClick={() => setDeletingTrainer(trainer)}>
-                    Удалить
-                  </button>
-                  <button className={styles.editButton} type="button" onClick={() => openEditTrainerModal(trainer)} aria-label="Редактировать тренера">
-                    ✎
-                  </button>
-                </div>
-              </div>
-            ))
-          : null}
-
-        <ConfirmActionModal
-          isOpen={Boolean(deletingTrainer)}
-          title="Вы действительно хотите удалить учетную запись тренера?"
-          showReason={false}
-          reason=""
-          reasonPlaceholder=""
-          isPending={isDeletingTrainer}
-          isConfirmDisabled={isDeletingTrainer}
-          error={trainerDeleteError}
-          yesLabel="Да"
-          noLabel="Нет"
-          onReasonChange={noop}
-          onConfirm={() => void confirmDeleteTrainer()}
-          onClose={closeDeleteTrainerModal}
-        />
-
-        <UserEditModal
-          isOpen={isCreateTrainerModalOpen}
-          title="Создание новой учетной записи"
-          isTrainerEditing
-          isAvatarVisible={false}
-          avatarUrl=""
-          lastName={trainerCreateForm.last_name}
-          firstName={trainerCreateForm.first_name}
-          patronymic={trainerCreateForm.patronymic}
-          phone={trainerCreateForm.phone}
-          email={trainerCreateForm.email}
-          description={trainerCreateForm.description}
-          password={trainerCreateForm.password}
-          isSaving={isCreatingTrainer}
-          error={trainerCreateError}
-          text={editingPanelText}
-          passwordPlaceholder=""
-          onLastNameChange={(value) => handleCreateTrainerFieldChange('last_name', value)}
-          onFirstNameChange={(value) => handleCreateTrainerFieldChange('first_name', value)}
-          onPatronymicChange={(value) => handleCreateTrainerFieldChange('patronymic', value)}
-          onPhoneChange={(value) => handleCreateTrainerFieldChange('phone', value)}
-          onEmailChange={(value) => handleCreateTrainerFieldChange('email', value)}
-          onDescriptionChange={(value) => handleCreateTrainerFieldChange('description', value)}
-          onPasswordChange={(value) => handleCreateTrainerFieldChange('password', value)}
-          onAvatarError={noop}
-          onSubmit={() => void submitCreateTrainer()}
-          onClose={closeCreateTrainerModal}
-        />
-
-        <UserEditModal
-          isOpen={Boolean(editingTrainer)}
-          isTrainerEditing
-          isAvatarVisible={isEditTrainerAvatarVisible}
-          avatarUrl={trainerAvatarUrl}
-          lastName={editLastName}
-          firstName={editFirstName}
-          patronymic={editPatronymic}
-          phone={editPhone}
-          email={editEmail}
-          description={editDescription}
-          password={editPassword}
-          isSaving={isEditTrainerSaving}
-          error={editTrainerError}
-          text={editingPanelText}
-          showDeleteButton
-          deleteLabel="Удалить"
-          isDeleteDisabled={isEditTrainerSaving}
-          onLastNameChange={setEditLastName}
-          onFirstNameChange={setEditFirstName}
-          onPatronymicChange={setEditPatronymic}
-          onPhoneChange={setEditPhone}
-          onEmailChange={setEditEmail}
-          onDescriptionChange={setEditDescription}
-          onPasswordChange={setEditPassword}
-          onAvatarError={() => setIsEditTrainerAvatarVisible(false)}
-          onSubmit={() => void submitEditTrainer()}
-          onDelete={requestDeleteFromEditModal}
-          onClose={closeEditTrainerModal}
-        />
-      </section>
+      <GymTrainersTab
+        trainerSearch={trainerSearch}
+        onTrainerSearchChange={setTrainerSearch}
+        onOpenCreateTrainerModal={openCreateTrainerModal}
+        isTrainerListLoading={isTrainerListLoading}
+        trainerListError={trainerListError}
+        filteredTrainers={filteredTrainers}
+        onRequestDeleteTrainer={setDeletingTrainer}
+        onOpenEditTrainerModal={openEditTrainerModal}
+        deletingTrainer={deletingTrainer}
+        isDeletingTrainer={isDeletingTrainer}
+        trainerDeleteError={trainerDeleteError}
+        onConfirmDeleteTrainer={confirmDeleteTrainer}
+        onCloseDeleteTrainerModal={closeDeleteTrainerModal}
+        isCreateTrainerModalOpen={isCreateTrainerModalOpen}
+        isCreatingTrainer={isCreatingTrainer}
+        trainerCreateError={trainerCreateError}
+        trainerCreateForm={trainerCreateForm}
+        onChangeCreateTrainerField={handleCreateTrainerFieldChange}
+        onSubmitCreateTrainer={submitCreateTrainer}
+        onCloseCreateTrainerModal={closeCreateTrainerModal}
+        editingTrainer={editingTrainer}
+        isEditTrainerAvatarVisible={isEditTrainerAvatarVisible}
+        trainerAvatarUrl={trainerAvatarUrl}
+        editLastName={editLastName}
+        editFirstName={editFirstName}
+        editPatronymic={editPatronymic}
+        editPhone={editPhone}
+        editEmail={editEmail}
+        editDescription={editDescription}
+        editPassword={editPassword}
+        isEditTrainerSaving={isEditTrainerSaving}
+        editTrainerError={editTrainerError}
+        setEditLastName={setEditLastName}
+        setEditFirstName={setEditFirstName}
+        setEditPatronymic={setEditPatronymic}
+        setEditPhone={setEditPhone}
+        setEditEmail={setEditEmail}
+        setEditDescription={setEditDescription}
+        setEditPassword={setEditPassword}
+        onHideEditTrainerAvatar={() => setIsEditTrainerAvatarVisible(false)}
+        onSubmitEditTrainer={submitEditTrainer}
+        onDeleteFromEditModal={requestDeleteFromEditModal}
+        onCloseEditTrainerModal={closeEditTrainerModal}
+      />
     )
   }
-
   if (activeTab === 'bookings') {
     return (
-      <section className={styles.bookingsSection}>
-        <div className={styles.bookingsToolbar}>
-          <div className={styles.bookingsDateControls}>
-            <button
-              type="button"
-              className={styles.bookingsDateNavButton}
-              aria-label="Предыдущий день"
-              onClick={() => setBookingDate((prev) => shiftDateByDays(prev, -1))}
-              disabled={isSlotsLoading}
-            >
-              ←
-            </button>
-
-            <span className={styles.bookingsDateLabel}>{formatBookingDateLabel(bookingDate)}</span>
-
-            <button
-              type="button"
-              className={styles.bookingsDateNavButton}
-              aria-label="Следующий день"
-              onClick={() => setBookingDate((prev) => shiftDateByDays(prev, 1))}
-              disabled={isSlotsLoading}
-            >
-              →
-            </button>
-          </div>
-
-          <div className={styles.bookingsTrainerDropdown} ref={bookingTrainerDropdownRef}>
-            <button
-              type="button"
-              className={styles.bookingsTrainerTrigger}
-              onClick={() => setIsBookingTrainerDropdownOpen((prev) => !prev)}
-              disabled={isBookingTrainerOptionsLoading || bookingTrainerOptions.length === 0}
-            >
-              {selectedBookingTrainerLabel}
-            </button>
-
-            {isBookingTrainerDropdownOpen ? (
-              <div className={styles.bookingsTrainerDropdownMenu}>
-                {bookingTrainerOptions.map((trainer) => (
-                  <button
-                    type="button"
-                    key={trainer.trainer_id}
-                    className={styles.bookingsTrainerDropdownOption}
-                    onClick={() => {
-                      setSelectedBookingTrainerId(trainer.trainer_id)
-                      setIsBookingTrainerDropdownOpen(false)
-                    }}
-                  >
-                    {trainer.label}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </div>
-        </div>
-
-        {bookingTrainerOptionsError ? <p className={styles.placeholder}>{bookingTrainerOptionsError}</p> : null}
-        {isSlotsLoading ? <p className={styles.placeholder}>Загрузка слотов...</p> : null}
-        {slotsError ? <p className={styles.placeholder}>{slotsError}</p> : null}
-        {!isSlotsLoading && !slotsError && slots.length === 0 ? <p className={styles.placeholder}>Слоты не найдены</p> : null}
-        {bookingActionError ? <p className={styles.placeholder}>{bookingActionError}</p> : null}
-
-        {!isSlotsLoading && !slotsError && slots.length > 0 ? (
-          <div className={styles.bookingsList}>
-            {slots.map((slot) => {
-              const slotKey = slot.id ?? `${slot.trainer_id}-${slot.start_time}`
-              const isCreated = slot.booking_status === 'CREATED' && Boolean(slot.booking_id)
-              const isVisited = slot.booking_status === 'VISITED'
-              const statusText = slot.booking_status ? resolveBookingStatusText(slot.booking_status) : ''
-              const isAttendanceMenuOpen = attendanceMenuSlotId === slotKey
-              const isSlotActionPending = Boolean(slot.booking_id && bookingActionPendingId === slot.booking_id)
-              const bookingId = slot.booking_id
-
-              return (
-                <div key={slotKey} className={styles.bookingSlotRow}>
-                  <span className={styles.bookingSlotTime}>{formatSlotTimeLabel(slot.start_time)}</span>
-
-                  <div className={styles.bookingSlotCard}>
-                    <span className={styles.bookingSlotClient}>{formatBookedUserName(slot)}</span>
-
-                    <div className={styles.bookingSlotRight}>
-                      {isCreated && bookingId ? (
-                        <div className={styles.bookingSlotActions} ref={isAttendanceMenuOpen ? attendanceMenuRef : undefined}>
-                          <button
-                            type="button"
-                            className={styles.bookingMarkButton}
-                            onClick={() => setAttendanceMenuSlotId((prev) => (prev === slotKey ? null : slotKey))}
-                            disabled={isSlotActionPending}
-                          >
-                            Отметить
-                          </button>
-
-                          {isAttendanceMenuOpen ? (
-                            <div className={styles.bookingAttendanceMenu}>
-                              <button
-                                type="button"
-                                className={styles.bookingAttendanceMenuButton}
-                                onClick={() => void submitBookingAttendance(bookingId, 'VISITED')}
-                                disabled={isSlotActionPending}
-                              >
-                                Посетил
-                              </button>
-                              <button
-                                type="button"
-                                className={styles.bookingAttendanceMenuButton}
-                                onClick={() => void submitBookingAttendance(bookingId, 'NOT_VISITED')}
-                                disabled={isSlotActionPending}
-                              >
-                                Отсутствовал
-                              </button>
-                            </div>
-                          ) : null}
-
-                          <button
-                            type="button"
-                            className={styles.bookingCancelIconButton}
-                            aria-label="Отменить бронь"
-                            onClick={() => requestCancelBooking(bookingId)}
-                            disabled={isSlotActionPending}
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ) : null}
-
-                      {!isCreated && statusText ? (
-                        <span
-                          className={`${styles.bookingStatusLabel} ${
-                            isVisited ? styles.bookingStatusVisited : styles.bookingStatusNegative
-                          }`}
-                        >
-                          {statusText}
-                        </span>
-                      ) : null}
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        ) : null}
-
-        <ConfirmActionModal
-          isOpen={Boolean(cancelBookingId)}
-          title="Вы действительно хотите отменить бронь?"
-          showReason={false}
-          reason=""
-          reasonPlaceholder=""
-          isPending={Boolean(bookingActionPendingId)}
-          isConfirmDisabled={Boolean(bookingActionPendingId)}
-          error={bookingActionError}
-          yesLabel="Да"
-          noLabel="Нет"
-          onReasonChange={noop}
-          onConfirm={() => void confirmCancelBooking()}
-          onClose={closeCancelBookingModal}
-        />
-      </section>
+      <GymBookingsTab
+        bookingDate={bookingDate}
+        onBookingDateChange={setBookingDate}
+        isSlotsLoading={isSlotsLoading}
+        bookingTrainerDropdownRef={bookingTrainerDropdownRef}
+        isBookingTrainerOptionsLoading={isBookingTrainerOptionsLoading}
+        bookingTrainerOptions={bookingTrainerOptions}
+        selectedBookingTrainerLabel={selectedBookingTrainerLabel}
+        isBookingTrainerDropdownOpen={isBookingTrainerDropdownOpen}
+        onToggleBookingTrainerDropdown={() => setIsBookingTrainerDropdownOpen((prev) => !prev)}
+        onSelectBookingTrainer={(trainerId) => {
+          setSelectedBookingTrainerId(trainerId)
+          setIsBookingTrainerDropdownOpen(false)
+        }}
+        bookingTrainerOptionsError={bookingTrainerOptionsError}
+        slotsError={slotsError}
+        slots={slots}
+        bookingActionError={bookingActionError}
+        attendanceMenuSlotId={attendanceMenuSlotId}
+        attendanceMenuRef={attendanceMenuRef}
+        bookingActionPendingId={bookingActionPendingId}
+        onToggleAttendanceMenu={(slotKey) => setAttendanceMenuSlotId((prev) => (prev === slotKey ? null : slotKey))}
+        onSubmitBookingAttendance={submitBookingAttendance}
+        onRequestCancelBooking={requestCancelBooking}
+        cancelBookingId={cancelBookingId}
+        onConfirmCancelBooking={confirmCancelBooking}
+        onCloseCancelBookingModal={closeCancelBookingModal}
+      />
     )
   }
 
   if (activeTab === 'reviews') {
-    const averageRatingLabel = averageRating === null ? '-' : averageRating.toLocaleString('ru-RU', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
-
-    return (
-      <section className={styles.reviewsSection}>
-        <p className={styles.reviewsRating}>Рейтинг: {averageRatingLabel}</p>
-
-        {isReviewsLoading ? <p className={styles.placeholder}>Загрузка отзывов...</p> : null}
-        {reviewsError ? <p className={styles.placeholder}>{reviewsError}</p> : null}
-        {!isReviewsLoading && !reviewsError && reviews.length === 0 ? (
-          <p className={styles.placeholder}>У вашего зала пока нет отзывов</p>
-        ) : null}
-
-        {!isReviewsLoading && !reviewsError
-          ? reviews.map((review) => (
-              <article key={review.id} className={styles.reviewCard}>
-                <div className={styles.reviewTopRow}>
-                  <p className={styles.reviewMeta}>
-                    <strong>{formatReviewAuthor(review)}</strong> {formatReviewDate(review.created_at)}
-                  </p>
-                  <ReviewStars rating={review.rating} />
-                </div>
-                <p className={styles.reviewText}>{review.comment?.trim().length ? review.comment : 'Без комментария'}</p>
-              </article>
-            ))
-          : null}
-      </section>
-    )
+    return <GymReviewsTab averageRating={averageRating} isReviewsLoading={isReviewsLoading} reviewsError={reviewsError} reviews={reviews} />
   }
 
   if (activeTab === 'clients') {
     return (
-      <section className={styles.clientsSection}>
-        <div className={styles.clientsSearchRow}>
-          <label className={styles.searchBox}>
-            <input
-              className={styles.searchInput}
-              type="search"
-              placeholder="Поиск"
-              value={activeClientsSearch}
-              onChange={(event) => setActiveClientsSearch(event.target.value)}
-            />
-          </label>
-        </div>
-
-        <div className={styles.activeClientsHeader}>
-          <span>Клиент</span>
-          <span>Абонемент / Пакет</span>
-          <span>Осталось занятий</span>
-          <span />
-        </div>
-
-        {isClientsLoading ? <p className={styles.placeholder}>Загрузка клиентов...</p> : null}
-        {clientsError ? <p className={styles.placeholder}>{clientsError}</p> : null}
-        {!isClientsLoading && !clientsError && filteredActiveClients.length === 0 ? (
-          <p className={styles.placeholder}>Незаблокированных клиентов не найдено</p>
-        ) : null}
-
-        {!isClientsLoading && !clientsError
-          ? filteredActiveClients.map((client) => (
-              <div key={client.user_id} className={styles.activeClientRow}>
-                <span className={styles.clientName}>{client.full_name}</span>
-                <span className={styles.clientServices}>
-                  {client.active_membership_name ? <span>{client.active_membership_name}</span> : null}
-                  {client.active_package_name ? <span>{client.active_package_name}</span> : null}
-                  {!client.active_membership_name && !client.active_package_name ? <span>-</span> : null}
-                </span>
-                <span className={styles.clientSessions}>{formatSessionsLeft(client.active_package_sessions_left)}</span>
-                <div className={styles.clientActions}>
-                  <button
-                    className={`${styles.blockButton} ${styles.clientBlockButton}`}
-                    type="button"
-                    onClick={() => requestToggleClientBlock(client)}
-                    disabled={clientActionPendingId === client.user_id}
-                  >
-                    Заблокировать
-                  </button>
-                  <div className={styles.clientPlusWrap} ref={clientMenuTargetId === client.user_id ? clientMenuRef : undefined}>
-                    <button
-                      className={styles.clientPlusButton}
-                      type="button"
-                      aria-label="Дополнительные действия"
-                      onClick={() => setClientMenuTargetId((prev) => (prev === client.user_id ? null : client.user_id))}
-                    >
-                      +
-                    </button>
-                    {clientMenuTargetId === client.user_id ? (
-                      <div className={styles.clientPlusMenu}>
-                        <button
-                          type="button"
-                          className={styles.clientPlusMenuButton}
-                          onClick={() => void openClientAssignModal(client, 'package')}
-                        >
-                          Пакет
-                        </button>
-                        <button
-                          type="button"
-                          className={styles.clientPlusMenuButton}
-                          onClick={() => void openClientAssignModal(client, 'membership')}
-                        >
-                          Абонемент
-                        </button>
-                      </div>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-            ))
-          : null}
-
-        <h4 className={styles.blockedClientsTitle}>Заблокированные пользователи:</h4>
-
-        <div className={styles.clientsSearchRow}>
-          <label className={styles.searchBox}>
-            <input
-              className={styles.searchInput}
-              type="search"
-              placeholder="Поиск"
-              value={blockedClientsSearch}
-              onChange={(event) => setBlockedClientsSearch(event.target.value)}
-            />
-          </label>
-        </div>
-
-        <div className={styles.blockedClientsHeader}>
-          <span>Клиент</span>
-          <span />
-        </div>
-
-        {!isClientsLoading && !clientsError && filteredBlockedClients.length === 0 ? (
-          <p className={styles.placeholder}>Заблокированных клиентов нет</p>
-        ) : null}
-
-        {!isClientsLoading && !clientsError
-          ? filteredBlockedClients.map((client) => (
-              <div key={client.user_id} className={styles.blockedClientRow}>
-                <span className={styles.clientName}>{client.full_name}</span>
-                <div className={styles.clientActions}>
-                  <button
-                    className={`${styles.blockButton} ${styles.clientUnblockButton}`}
-                    type="button"
-                    onClick={() => requestToggleClientBlock(client)}
-                    disabled={clientActionPendingId === client.user_id}
-                  >
-                    Разблокировать
-                  </button>
-                </div>
-              </div>
-            ))
-          : null}
-
-        <ConfirmActionModal
-          isOpen={Boolean(clientActionTarget && clientActionMode)}
-          title={
-            clientActionMode === 'unblock'
-              ? 'Вы уверены что хотите разблокировать клиента?'
-              : 'Вы уверены что хотите заблокировать клиента?'
-          }
-          showReason={false}
-          reason=""
-          reasonPlaceholder=""
-          isPending={Boolean(clientActionPendingId)}
-          isConfirmDisabled={Boolean(clientActionPendingId)}
-          error={clientActionError}
-          yesLabel="Да"
-          noLabel="Нет"
-          onReasonChange={noop}
-          onConfirm={() => void confirmToggleClientBlock()}
-          onClose={closeClientActionModal}
-        />
-
-        {isClientAssignModalOpen ? (
-          <div className={styles.modalOverlay} onClick={closeClientAssignModal} role="presentation">
-            <div className={styles.clientAssignModalCard} onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true">
-              <h4 className={styles.clientAssignModalTitle}>{clientAssignType === 'package' ? 'Пакет' : 'Абонемент'}</h4>
-
-              <div className={styles.clientAssignDropdown} ref={clientAssignDropdownRef}>
-                <button
-                  type="button"
-                  className={styles.clientAssignSelectTrigger}
-                  onClick={() => setIsClientAssignDropdownOpen((prev) => !prev)}
-                  disabled={isClientAssignOptionsLoading || isClientAssignSubmitting || clientAssignOptions.length === 0}
-                >
-                  {selectedClientAssignLabel}
-                </button>
-
-                {isClientAssignDropdownOpen ? (
-                  <div className={styles.clientAssignDropdownMenu}>
-                    {clientAssignOptions.map((option) => (
-                      <button
-                        type="button"
-                        key={option.id}
-                        className={styles.clientAssignDropdownOption}
-                        onClick={() => {
-                          setSelectedClientAssignOptionId(option.id)
-                          setIsClientAssignDropdownOpen(false)
-                        }}
-                      >
-                        {option.label}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-
-              {isClientAssignOptionsLoading ? (
-                <p className={styles.modalInfo}>{clientAssignType === 'package' ? 'Загружаем пакеты...' : 'Загружаем абонементы...'}</p>
-              ) : null}
-              {clientAssignError ? <p className={styles.modalError}>{clientAssignError}</p> : null}
-
-              <div className={styles.clientAssignActions}>
-                <button
-                  className={styles.clientAssignSubmitButton}
-                  type="button"
-                  onClick={() => void submitClientAssign()}
-                  disabled={isClientAssignSubmitting || isClientAssignOptionsLoading || !selectedClientAssignOptionId}
-                >
-                  Добавить
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : null}
-      </section>
+      <GymClientsTab
+        activeClientsSearch={activeClientsSearch}
+        onActiveClientsSearchChange={setActiveClientsSearch}
+        blockedClientsSearch={blockedClientsSearch}
+        onBlockedClientsSearchChange={setBlockedClientsSearch}
+        isClientsLoading={isClientsLoading}
+        clientsError={clientsError}
+        filteredActiveClients={filteredActiveClients}
+        filteredBlockedClients={filteredBlockedClients}
+        clientActionPendingId={clientActionPendingId}
+        onRequestToggleClientBlock={requestToggleClientBlock}
+        clientMenuTargetId={clientMenuTargetId}
+        clientMenuRef={clientMenuRef}
+        onToggleClientMenu={(userId) => setClientMenuTargetId((prev) => (prev === userId ? null : userId))}
+        onOpenClientAssignModal={openClientAssignModal}
+        clientActionTarget={clientActionTarget}
+        clientActionMode={clientActionMode}
+        clientActionError={clientActionError}
+        onConfirmToggleClientBlock={confirmToggleClientBlock}
+        onCloseClientActionModal={closeClientActionModal}
+        isClientAssignModalOpen={isClientAssignModalOpen}
+        onCloseClientAssignModal={closeClientAssignModal}
+        clientAssignType={clientAssignType}
+        clientAssignDropdownRef={clientAssignDropdownRef}
+        isClientAssignDropdownOpen={isClientAssignDropdownOpen}
+        onToggleClientAssignDropdown={() => setIsClientAssignDropdownOpen((prev) => !prev)}
+        isClientAssignOptionsLoading={isClientAssignOptionsLoading}
+        isClientAssignSubmitting={isClientAssignSubmitting}
+        clientAssignOptions={clientAssignOptions}
+        selectedClientAssignLabel={selectedClientAssignLabel}
+        onSelectClientAssignOption={(id) => {
+          setSelectedClientAssignOptionId(id)
+          setIsClientAssignDropdownOpen(false)
+        }}
+        selectedClientAssignOptionId={selectedClientAssignOptionId}
+        clientAssignError={clientAssignError}
+        onSubmitClientAssign={submitClientAssign}
+      />
     )
   }
-
   if (activeTab !== 'services') {
     return <p className={styles.placeholder}>Раздел «{buildPlaceholderLabel(activeTab)}» в разработке</p>
   }
@@ -1852,265 +1189,42 @@ export function GymTabPanel({
     trainerOptions.find((trainer) => trainer.trainer_id === trainerPackageForm.trainerId)?.label ?? 'Выберите тренера'
 
   return (
-    <div className={styles.columns}>
-      <section>
-        <div className={styles.sectionHeaderRow}>
-          <h3 className={styles.sectionTitle}>Членства (абонементы)</h3>
-          <button className={styles.addButton} type="button" onClick={openCreateMembershipModal}>
-            + добавить
-          </button>
-        </div>
-
-        <div className={styles.tableHeader}>
-          <span>Название</span>
-          <span>Цена</span>
-          <span />
-        </div>
-
-        {membershipTypes.length === 0 ? <p className={styles.placeholder}>Пока нет абонементов</p> : null}
-
-        {membershipTypes.map((membership) => (
-          <div className={styles.row} key={membership.id}>
-            <span className={styles.nameCell}>{membership.name}</span>
-            <span className={styles.priceCell}>{formatPrice(membership.price)}</span>
-            <button className={styles.editButton} type="button" aria-label="Редактировать абонемент" onClick={() => openEditMembershipModal(membership)}>
-              ✎
-            </button>
-          </div>
-        ))}
-      </section>
-
-      <section>
-        <div className={styles.sectionHeaderRow}>
-          <h3 className={styles.sectionTitle}>Пакеты с тренерами</h3>
-          <button className={styles.addButton} type="button" onClick={() => void openCreateTrainerPackageModal()}>
-            + добавить
-          </button>
-        </div>
-
-        <div className={styles.tableHeader}>
-          <span>Название</span>
-          <span>Цена</span>
-          <span />
-        </div>
-
-        {trainerPackages.length === 0 ? <p className={styles.placeholder}>Пока нет пакетов</p> : null}
-
-        {trainerPackages.map((packageItem) => (
-          <div className={styles.row} key={packageItem.id}>
-            <span className={styles.nameCell}>{buildTrainerPackageTitle(packageItem)}</span>
-            <span className={styles.priceCell}>{formatPrice(packageItem.price)}</span>
-            <button className={styles.editButton} type="button" aria-label="Редактировать пакет" onClick={() => void openEditTrainerPackageModal(packageItem)}>
-              ✎
-            </button>
-          </div>
-        ))}
-      </section>
-
-      {isMembershipModalOpen ? (
-        <div className={styles.modalOverlay} onClick={closeMembershipModal} role="presentation">
-          <div className={styles.modalCard} onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true">
-            <h4 className={styles.modalTitle}>
-              {membershipModalMode === 'edit' ? 'Редактирование услуги(Абонемент)' : 'Создание новой услуги(Абонемент)'}
-            </h4>
-
-            <label className={styles.modalField}>
-              <span className={styles.modalLabel}>Название</span>
-              <input
-                className={styles.modalInput}
-                value={membershipForm.name}
-                onChange={(event) => handleMembershipFieldChange('name', event.target.value)}
-                disabled={isMembershipBusy}
-              />
-            </label>
-
-            <label className={styles.modalField}>
-              <span className={styles.modalLabel}>Цена</span>
-              <input
-                className={styles.modalInput}
-                type="number"
-                inputMode="decimal"
-                min="0"
-                step="0.01"
-                value={membershipForm.price}
-                onChange={(event) => handleMembershipFieldChange('price', event.target.value)}
-                disabled={isMembershipBusy}
-              />
-            </label>
-
-            <label className={styles.modalField}>
-              <span className={styles.modalLabel}>Продолжительность</span>
-              <div className={styles.modalDropdown} ref={durationDropdownRef}>
-                <button
-                  type="button"
-                  className={styles.modalSelectTrigger}
-                  onClick={() => setIsDurationDropdownOpen((prev) => !prev)}
-                  disabled={isMembershipBusy}
-                >
-                  {formatDurationLabel(membershipForm.durationMonths)}
-                </button>
-
-                {isDurationDropdownOpen ? (
-                  <div className={styles.modalDropdownMenu}>
-                    {membershipDurations.map((months) => (
-                      <button
-                        type="button"
-                        key={months}
-                        className={styles.modalDropdownOption}
-                        onClick={() => {
-                          handleMembershipFieldChange('durationMonths', months)
-                          setIsDurationDropdownOpen(false)
-                        }}
-                      >
-                        {formatDurationLabel(months)}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            </label>
-
-            <label className={styles.modalField}>
-              <span className={styles.modalLabel}>Описание</span>
-              <textarea
-                className={styles.modalTextarea}
-                value={membershipForm.description}
-                onChange={(event) => handleMembershipFieldChange('description', event.target.value)}
-                disabled={isMembershipBusy}
-              />
-            </label>
-
-            {membershipError ? <p className={styles.modalError}>{membershipError}</p> : null}
-
-            <div className={styles.modalActions}>
-              <button className={styles.modalSubmitButton} type="button" onClick={() => void submitMembership()} disabled={isMembershipBusy}>
-                {membershipModalMode === 'edit' ? 'Сохранить' : 'Добавить'}
-              </button>
-
-              {membershipModalMode === 'edit' ? (
-                <button className={styles.modalDangerButton} type="button" onClick={() => void removeMembership()} disabled={isMembershipBusy}>
-                  Удалить
-                </button>
-              ) : null}
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {isTrainerPackageModalOpen ? (
-        <div className={styles.modalOverlay} onClick={closeTrainerPackageModal} role="presentation">
-          <div className={styles.modalCard} onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true">
-            <h4 className={styles.modalTitle}>
-              {trainerPackageModalMode === 'edit' ? 'Редактирование услуги(Пакет)' : 'Создание новой услуги(Пакет)'}
-            </h4>
-
-            <label className={styles.modalField}>
-              <span className={styles.modalLabel}>Название</span>
-              <input
-                className={styles.modalInput}
-                value={trainerPackageForm.name}
-                onChange={(event) => handleTrainerPackageFieldChange('name', event.target.value)}
-                disabled={isPackageBusy}
-              />
-            </label>
-
-            <label className={styles.modalField}>
-              <span className={styles.modalLabel}>Цена</span>
-              <input
-                className={styles.modalInput}
-                type="number"
-                inputMode="decimal"
-                min="0"
-                step="0.01"
-                value={trainerPackageForm.price}
-                onChange={(event) => handleTrainerPackageFieldChange('price', event.target.value)}
-                disabled={isPackageBusy}
-              />
-            </label>
-
-            <label className={styles.modalField}>
-              <span className={styles.modalLabel}>Кол-во занятий</span>
-              <input
-                className={styles.modalInput}
-                type="number"
-                inputMode="numeric"
-                min="1"
-                step="1"
-                value={trainerPackageForm.sessionCount}
-                onChange={(event) => handleTrainerPackageFieldChange('sessionCount', event.target.value)}
-                disabled={isPackageBusy}
-              />
-            </label>
-
-            <label className={styles.modalField}>
-              <span className={styles.modalLabel}>Тренер</span>
-              <div className={styles.modalDropdown} ref={trainerDropdownRef}>
-                <button
-                  type="button"
-                  className={styles.modalSelectTrigger}
-                  onClick={() => setIsTrainerDropdownOpen((prev) => !prev)}
-                  disabled={isPackageBusy || isLoadingTrainers || trainerOptions.length === 0}
-                >
-                  {selectedTrainerLabel}
-                </button>
-
-                {isTrainerDropdownOpen ? (
-                  <div className={styles.modalDropdownMenu}>
-                    {trainerOptions.map((trainer) => (
-                      <button
-                        type="button"
-                        key={trainer.trainer_id}
-                        className={styles.modalDropdownOption}
-                        onClick={() => {
-                          handleTrainerPackageFieldChange('trainerId', trainer.trainer_id)
-                          setIsTrainerDropdownOpen(false)
-                        }}
-                      >
-                        {trainer.label}
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-            </label>
-
-            <label className={styles.modalField}>
-              <span className={styles.modalLabel}>Описание</span>
-              <textarea
-                className={styles.modalTextarea}
-                value={trainerPackageForm.description}
-                onChange={(event) => handleTrainerPackageFieldChange('description', event.target.value)}
-                disabled={isPackageBusy}
-              />
-            </label>
-
-            {isLoadingTrainers ? <p className={styles.modalInfo}>Загружаем тренеров...</p> : null}
-            {trainerPackageError ? <p className={styles.modalError}>{trainerPackageError}</p> : null}
-
-            <div className={styles.modalActions}>
-              <button
-                className={styles.modalSubmitButton}
-                type="button"
-                onClick={() => void submitTrainerPackage()}
-                disabled={isPackageBusy || isLoadingTrainers}
-              >
-                {trainerPackageModalMode === 'edit' ? 'Сохранить' : 'Добавить'}
-              </button>
-
-              {trainerPackageModalMode === 'edit' ? (
-                <button
-                  className={styles.modalDangerButton}
-                  type="button"
-                  onClick={() => void removeTrainerPackage()}
-                  disabled={isPackageBusy || isLoadingTrainers}
-                >
-                  Удалить
-                </button>
-              ) : null}
-            </div>
-          </div>
-        </div>
-      ) : null}
-    </div>
+    <GymServicesTab
+      membershipTypes={membershipTypes}
+      trainerPackages={trainerPackages}
+      onOpenCreateMembershipModal={openCreateMembershipModal}
+      onOpenEditMembershipModal={openEditMembershipModal}
+      onOpenCreateTrainerPackageModal={openCreateTrainerPackageModal}
+      onOpenEditTrainerPackageModal={openEditTrainerPackageModal}
+      isMembershipModalOpen={isMembershipModalOpen}
+      onCloseMembershipModal={closeMembershipModal}
+      membershipModalMode={membershipModalMode}
+      membershipForm={membershipForm}
+      onMembershipFieldChange={handleMembershipFieldChange}
+      isMembershipBusy={isMembershipBusy}
+      isDurationDropdownOpen={isDurationDropdownOpen}
+      onToggleDurationDropdown={() => setIsDurationDropdownOpen((prev) => !prev)}
+      onCloseDurationDropdown={() => setIsDurationDropdownOpen(false)}
+      durationDropdownRef={durationDropdownRef}
+      membershipError={membershipError}
+      onSubmitMembership={submitMembership}
+      onRemoveMembership={removeMembership}
+      isTrainerPackageModalOpen={isTrainerPackageModalOpen}
+      onCloseTrainerPackageModal={closeTrainerPackageModal}
+      trainerPackageModalMode={trainerPackageModalMode}
+      trainerPackageForm={trainerPackageForm}
+      onTrainerPackageFieldChange={handleTrainerPackageFieldChange}
+      isPackageBusy={isPackageBusy}
+      trainerDropdownRef={trainerDropdownRef}
+      isTrainerDropdownOpen={isTrainerDropdownOpen}
+      onToggleTrainerDropdown={() => setIsTrainerDropdownOpen((prev) => !prev)}
+      onCloseTrainerDropdown={() => setIsTrainerDropdownOpen(false)}
+      isLoadingTrainers={isLoadingTrainers}
+      trainerOptions={trainerOptions}
+      selectedTrainerLabel={selectedTrainerLabel}
+      trainerPackageError={trainerPackageError}
+      onSubmitTrainerPackage={submitTrainerPackage}
+      onRemoveTrainerPackage={removeTrainerPackage}
+    />
   )
 }

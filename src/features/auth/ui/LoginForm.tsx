@@ -3,8 +3,8 @@ import type { ComponentProps } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'react-toastify'
 import { login } from '@features/auth/api/login'
+import { handleAuthErrorToast } from '@features/auth/lib/authErrorToast'
 import { setAccessToken, setUserRole } from '@shared/lib/auth/tokenStorage'
-import { ApiError } from '@shared/lib/http/ApiError'
 import styles from './LoginForm.module.css'
 
 export function LoginForm() {
@@ -37,19 +37,11 @@ export function LoginForm() {
 
       navigate('/', { replace: true })
     } catch (error) {
-      if (error instanceof ApiError) {
-        if (error.status >= 500) {
-          toast.error('Внутренняя ошибка сервиса: повторите попытку позже')
-          return
-        }
-
-        if (error.status >= 400 && error.status < 500 && error.status !== 401) {
-          toast.warn('Ошибка авторизации: проверьте логин или пароль')
-          return
-        }
-      }
-
-      toast.error('Внутренняя ошибка сервиса: повторите попытку позже')
+      handleAuthErrorToast({
+        error,
+        clientErrorText: 'Ошибка авторизации: проверьте логин или пароль',
+        skipStatuses: [401],
+      })
     } finally {
       setIsSubmitting(false)
     }
