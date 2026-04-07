@@ -7,21 +7,38 @@ import { useClickOutside } from '@shared/lib/dom/useClickOutside'
 import { useEscapeKey } from '@shared/lib/dom/useEscapeKey'
 import { ApiError } from '@shared/lib/http/ApiError'
 import {
+  assignClientMembership,
+  assignClientTrainerPackage,
+  blockGymClientUser,
   createGymTrainerUser,
   createGymMembership,
   createGymTrainerPackage,
   deleteGymMembership,
   deleteGymTrainerPackage,
   deleteGymUserAccount,
+  fetchGymClientUsers,
+  fetchGymMembershipOptions,
+  fetchGymPackageOptions,
   fetchGymReviews,
   fetchGymTrainers,
   fetchGymTrainerUsers,
+  unblockGymClientUser,
   updateGymUserById,
   updateGymMembership,
   updateGymTrainerPackage,
 } from '../../api/gymDashboardApi'
 import { gymTabs } from '../../model/gymTabs'
-import type { GymReview, GymTabKey, GymTrainerListItem, GymTrainerOption, MembershipType, TrainerPackage } from '../../model/types'
+import type {
+  GymClientListItem,
+  GymMembershipOption,
+  GymPackageOption,
+  GymReview,
+  GymTabKey,
+  GymTrainerListItem,
+  GymTrainerOption,
+  MembershipType,
+  TrainerPackage,
+} from '../../model/types'
 import styles from './GymTabPanel.module.css'
 
 type GymTabPanelProps = {
@@ -41,6 +58,9 @@ const noop = () => undefined
 
 type MembershipDuration = (typeof membershipDurations)[number]
 type ModalMode = 'create' | 'edit'
+type ClientActionMode = 'block' | 'unblock'
+type ClientAssignType = 'package' | 'membership'
+type ClientAssignOption = GymPackageOption | GymMembershipOption
 
 type MembershipFormState = {
   name: string
@@ -186,6 +206,14 @@ function normalizePhone(phone: string | null): string {
   return trimmed && trimmed.length > 0 ? trimmed : '-'
 }
 
+function formatSessionsLeft(sessionsLeft: number | null): string {
+  if (sessionsLeft === null || !Number.isFinite(sessionsLeft)) {
+    return '-'
+  }
+
+  return `${sessionsLeft} занятий`
+}
+
 function formatReviewAuthor(review: GymReview): string {
   const fullName = [review.author.first_name, review.author.last_name, review.author.patronymic ?? '']
     .map((item) => item.trim())
@@ -289,6 +317,27 @@ export function GymTabPanel({
   const [reviews, setReviews] = useState<GymReview[]>([])
   const [isReviewsLoading, setIsReviewsLoading] = useState(false)
   const [reviewsError, setReviewsError] = useState<string | null>(null)
+  const [clients, setClients] = useState<GymClientListItem[]>([])
+  const [isClientsLoading, setIsClientsLoading] = useState(false)
+  const [clientsError, setClientsError] = useState<string | null>(null)
+  const [activeClientsSearch, setActiveClientsSearch] = useState('')
+  const [blockedClientsSearch, setBlockedClientsSearch] = useState('')
+  const [clientActionPendingId, setClientActionPendingId] = useState<string | null>(null)
+  const [clientActionTarget, setClientActionTarget] = useState<GymClientListItem | null>(null)
+  const [clientActionMode, setClientActionMode] = useState<ClientActionMode | null>(null)
+  const [clientActionError, setClientActionError] = useState<string | null>(null)
+  const [clientMenuTargetId, setClientMenuTargetId] = useState<string | null>(null)
+  const clientMenuRef = useRef<HTMLDivElement | null>(null)
+  const [isClientAssignModalOpen, setIsClientAssignModalOpen] = useState(false)
+  const [clientAssignTarget, setClientAssignTarget] = useState<GymClientListItem | null>(null)
+  const [clientAssignType, setClientAssignType] = useState<ClientAssignType | null>(null)
+  const [clientAssignOptions, setClientAssignOptions] = useState<ClientAssignOption[]>([])
+  const [selectedClientAssignOptionId, setSelectedClientAssignOptionId] = useState('')
+  const [isClientAssignOptionsLoading, setIsClientAssignOptionsLoading] = useState(false)
+  const [isClientAssignSubmitting, setIsClientAssignSubmitting] = useState(false)
+  const [clientAssignError, setClientAssignError] = useState<string | null>(null)
+  const [isClientAssignDropdownOpen, setIsClientAssignDropdownOpen] = useState(false)
+  const clientAssignDropdownRef = useRef<HTMLDivElement | null>(null)
 
   const isMembershipBusy = isMembershipSubmitting || isMembershipDeleting
   const isPackageBusy = isPackageSubmitting || isPackageDeleting
@@ -370,6 +419,31 @@ export function GymTabPanel({
     setTrainerCreateForm(initialTrainerCreateFormState)
   }
 
+  const closeClientActionModal = () => {
+    if (clientActionPendingId) {
+      return
+    }
+
+    setClientActionTarget(null)
+    setClientActionMode(null)
+    setClientActionError(null)
+  }
+
+  const closeClientAssignModal = () => {
+    if (isClientAssignSubmitting) {
+      return
+    }
+
+    setIsClientAssignModalOpen(false)
+    setClientAssignTarget(null)
+    setClientAssignType(null)
+    setClientAssignOptions([])
+    setSelectedClientAssignOptionId('')
+    setClientAssignError(null)
+    setIsClientAssignDropdownOpen(false)
+    setIsClientAssignOptionsLoading(false)
+  }
+
   const loadTrainerList = async () => {
     if (!gymId) {
       setTrainerList([])
@@ -412,6 +486,27 @@ export function GymTabPanel({
     }
   }
 
+  const loadClients = async () => {
+    if (!gymId) {
+      setClients([])
+      setClientsError('Не удалось определить зал для загрузки клиентов')
+      return
+    }
+
+    setIsClientsLoading(true)
+    setClientsError(null)
+
+    try {
+      const payload = await fetchGymClientUsers(gymId)
+      setClients(payload)
+    } catch {
+      setClients([])
+      setClientsError('Не удалось загрузить список клиентов')
+    } finally {
+      setIsClientsLoading(false)
+    }
+  }
+
   useEffect(() => {
     if (activeTab !== 'trainers') {
       return
@@ -428,7 +523,25 @@ export function GymTabPanel({
     void loadReviews()
   }, [activeTab, gymId])
 
+  useEffect(() => {
+    if (activeTab !== 'clients') {
+      return
+    }
+
+    void loadClients()
+  }, [activeTab, gymId])
+
   useEscapeKey(() => {
+    if (isClientAssignModalOpen) {
+      closeClientAssignModal()
+      return
+    }
+
+    if (clientActionTarget) {
+      closeClientActionModal()
+      return
+    }
+
     if (editingTrainer) {
       closeEditTrainerModal()
       return
@@ -445,10 +558,12 @@ export function GymTabPanel({
     }
 
     closeMembershipModal()
-  }, isMembershipModalOpen || isTrainerPackageModalOpen || isCreateTrainerModalOpen || Boolean(editingTrainer))
+  }, isMembershipModalOpen || isTrainerPackageModalOpen || isCreateTrainerModalOpen || Boolean(editingTrainer) || Boolean(clientActionTarget) || isClientAssignModalOpen)
 
   useClickOutside(durationDropdownRef, () => setIsDurationDropdownOpen(false), isDurationDropdownOpen)
   useClickOutside(trainerDropdownRef, () => setIsTrainerDropdownOpen(false), isTrainerDropdownOpen)
+  useClickOutside(clientMenuRef, () => setClientMenuTargetId(null), Boolean(clientMenuTargetId))
+  useClickOutside(clientAssignDropdownRef, () => setIsClientAssignDropdownOpen(false), isClientAssignDropdownOpen)
 
   const handleMembershipFieldChange = (field: keyof MembershipFormState, value: string | MembershipDuration) => {
     setMembershipError(null)
@@ -793,6 +908,106 @@ export function GymTabPanel({
     closeEditTrainerModal()
   }
 
+  const requestToggleClientBlock = (client: GymClientListItem) => {
+    if (clientActionPendingId) {
+      return
+    }
+
+    setClientActionTarget(client)
+    setClientActionMode(client.blocked_at ? 'unblock' : 'block')
+    setClientActionError(null)
+  }
+
+  const loadClientAssignOptions = async (type: ClientAssignType): Promise<ClientAssignOption[]> => {
+    if (!gymId) {
+      return []
+    }
+
+    if (type === 'package') {
+      return fetchGymPackageOptions(gymId)
+    }
+
+    return fetchGymMembershipOptions(gymId)
+  }
+
+  const openClientAssignModal = async (client: GymClientListItem, type: ClientAssignType) => {
+    if (!gymId) {
+      return
+    }
+
+    setClientMenuTargetId(null)
+    setClientAssignTarget(client)
+    setClientAssignType(type)
+    setClientAssignError(null)
+    setClientAssignOptions([])
+    setSelectedClientAssignOptionId('')
+    setIsClientAssignDropdownOpen(false)
+    setIsClientAssignOptionsLoading(true)
+    setIsClientAssignModalOpen(true)
+
+    try {
+      const options = await loadClientAssignOptions(type)
+      setClientAssignOptions(options)
+      setSelectedClientAssignOptionId(options[0]?.id ?? '')
+      if (options.length === 0) {
+        setClientAssignError(type === 'package' ? 'Доступные пакеты не найдены' : 'Доступные абонементы не найдены')
+      }
+    } catch {
+      setClientAssignError(type === 'package' ? 'Не удалось загрузить пакеты' : 'Не удалось загрузить абонементы')
+    } finally {
+      setIsClientAssignOptionsLoading(false)
+    }
+  }
+
+  const confirmToggleClientBlock = async () => {
+    if (!clientActionTarget || !clientActionMode || !gymId || clientActionPendingId) {
+      return
+    }
+
+    setClientActionPendingId(clientActionTarget.user_id)
+    setClientActionError(null)
+    setClientsError(null)
+
+    try {
+      if (clientActionMode === 'unblock') {
+        await unblockGymClientUser(gymId, clientActionTarget.user_id)
+      } else {
+        await blockGymClientUser(gymId, clientActionTarget.user_id)
+      }
+
+      await loadClients()
+      closeClientActionModal()
+    } catch {
+      setClientActionError(clientActionMode === 'unblock' ? 'Не удалось разблокировать клиента' : 'Не удалось заблокировать клиента')
+    } finally {
+      setClientActionPendingId(null)
+    }
+  }
+
+  const submitClientAssign = async () => {
+    if (!clientAssignTarget || !clientAssignType || !selectedClientAssignOptionId || isClientAssignSubmitting) {
+      return
+    }
+
+    setIsClientAssignSubmitting(true)
+    setClientAssignError(null)
+
+    try {
+      if (clientAssignType === 'package') {
+        await assignClientTrainerPackage(clientAssignTarget.user_id, selectedClientAssignOptionId)
+      } else {
+        await assignClientMembership(clientAssignTarget.user_id, selectedClientAssignOptionId)
+      }
+
+      await loadClients()
+      closeClientAssignModal()
+    } catch {
+      setClientAssignError(clientAssignType === 'package' ? 'Не удалось добавить пакет клиенту' : 'Не удалось добавить абонемент клиенту')
+    } finally {
+      setIsClientAssignSubmitting(false)
+    }
+  }
+
   const filteredTrainers = useMemo(() => {
     const query = trainerSearch.trim().toLowerCase()
 
@@ -807,6 +1022,38 @@ export function GymTabPanel({
       return fullName.includes(query) || phone.includes(query)
     })
   }, [trainerList, trainerSearch])
+  const activeClients = useMemo(() => clients.filter((client) => !client.blocked_at), [clients])
+  const blockedClients = useMemo(() => clients.filter((client) => Boolean(client.blocked_at)), [clients])
+  const filteredActiveClients = useMemo(() => {
+    const query = activeClientsSearch.trim().toLowerCase()
+
+    if (!query) {
+      return activeClients
+    }
+
+    return activeClients.filter((client) => {
+      const servicesText = [client.active_membership_name, client.active_package_name].filter(Boolean).join(' ').toLowerCase()
+      return client.full_name.toLowerCase().includes(query) || servicesText.includes(query)
+    })
+  }, [activeClients, activeClientsSearch])
+  const filteredBlockedClients = useMemo(() => {
+    const query = blockedClientsSearch.trim().toLowerCase()
+
+    if (!query) {
+      return blockedClients
+    }
+
+    return blockedClients.filter((client) => client.full_name.toLowerCase().includes(query))
+  }, [blockedClients, blockedClientsSearch])
+  const selectedClientAssignLabel =
+    clientAssignOptions.find((option) => option.id === selectedClientAssignOptionId)?.label ??
+    (isClientAssignOptionsLoading
+      ? 'Загрузка...'
+      : clientAssignType === 'package'
+        ? 'Выберите пакет'
+        : clientAssignType === 'membership'
+          ? 'Выберите абонемент'
+          : 'Выберите услугу')
   const trainerAvatarUrl = editingTrainer ? `${resolveAvatarBaseUrl()}avatars/${editingTrainer.user_id}.jpg` : ''
   const averageRating = useMemo(() => {
     if (reviews.length === 0) {
@@ -971,6 +1218,203 @@ export function GymTabPanel({
               </article>
             ))
           : null}
+      </section>
+    )
+  }
+
+  if (activeTab === 'clients') {
+    return (
+      <section className={styles.clientsSection}>
+        <div className={styles.clientsSearchRow}>
+          <label className={styles.searchBox}>
+            <input
+              className={styles.searchInput}
+              type="search"
+              placeholder="Поиск"
+              value={activeClientsSearch}
+              onChange={(event) => setActiveClientsSearch(event.target.value)}
+            />
+          </label>
+        </div>
+
+        <div className={styles.activeClientsHeader}>
+          <span>Клиент</span>
+          <span>Абонемент / Пакет</span>
+          <span>Осталось занятий</span>
+          <span />
+        </div>
+
+        {isClientsLoading ? <p className={styles.placeholder}>Загрузка клиентов...</p> : null}
+        {clientsError ? <p className={styles.placeholder}>{clientsError}</p> : null}
+        {!isClientsLoading && !clientsError && filteredActiveClients.length === 0 ? (
+          <p className={styles.placeholder}>Незаблокированных клиентов не найдено</p>
+        ) : null}
+
+        {!isClientsLoading && !clientsError
+          ? filteredActiveClients.map((client) => (
+              <div key={client.user_id} className={styles.activeClientRow}>
+                <span className={styles.clientName}>{client.full_name}</span>
+                <span className={styles.clientServices}>
+                  {client.active_membership_name ? <span>{client.active_membership_name}</span> : null}
+                  {client.active_package_name ? <span>{client.active_package_name}</span> : null}
+                  {!client.active_membership_name && !client.active_package_name ? <span>-</span> : null}
+                </span>
+                <span className={styles.clientSessions}>{formatSessionsLeft(client.active_package_sessions_left)}</span>
+                <div className={styles.clientActions}>
+                  <button
+                    className={`${styles.blockButton} ${styles.clientBlockButton}`}
+                    type="button"
+                    onClick={() => requestToggleClientBlock(client)}
+                    disabled={clientActionPendingId === client.user_id}
+                  >
+                    Заблокировать
+                  </button>
+                  <div className={styles.clientPlusWrap} ref={clientMenuTargetId === client.user_id ? clientMenuRef : undefined}>
+                    <button
+                      className={styles.clientPlusButton}
+                      type="button"
+                      aria-label="Дополнительные действия"
+                      onClick={() => setClientMenuTargetId((prev) => (prev === client.user_id ? null : client.user_id))}
+                    >
+                      +
+                    </button>
+                    {clientMenuTargetId === client.user_id ? (
+                      <div className={styles.clientPlusMenu}>
+                        <button
+                          type="button"
+                          className={styles.clientPlusMenuButton}
+                          onClick={() => void openClientAssignModal(client, 'package')}
+                        >
+                          Пакет
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.clientPlusMenuButton}
+                          onClick={() => void openClientAssignModal(client, 'membership')}
+                        >
+                          Абонемент
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            ))
+          : null}
+
+        <h4 className={styles.blockedClientsTitle}>Заблокированные пользователи:</h4>
+
+        <div className={styles.clientsSearchRow}>
+          <label className={styles.searchBox}>
+            <input
+              className={styles.searchInput}
+              type="search"
+              placeholder="Поиск"
+              value={blockedClientsSearch}
+              onChange={(event) => setBlockedClientsSearch(event.target.value)}
+            />
+          </label>
+        </div>
+
+        <div className={styles.blockedClientsHeader}>
+          <span>Клиент</span>
+          <span />
+        </div>
+
+        {!isClientsLoading && !clientsError && filteredBlockedClients.length === 0 ? (
+          <p className={styles.placeholder}>Заблокированных клиентов нет</p>
+        ) : null}
+
+        {!isClientsLoading && !clientsError
+          ? filteredBlockedClients.map((client) => (
+              <div key={client.user_id} className={styles.blockedClientRow}>
+                <span className={styles.clientName}>{client.full_name}</span>
+                <div className={styles.clientActions}>
+                  <button
+                    className={`${styles.blockButton} ${styles.clientUnblockButton}`}
+                    type="button"
+                    onClick={() => requestToggleClientBlock(client)}
+                    disabled={clientActionPendingId === client.user_id}
+                  >
+                    Разблокировать
+                  </button>
+                </div>
+              </div>
+            ))
+          : null}
+
+        <ConfirmActionModal
+          isOpen={Boolean(clientActionTarget && clientActionMode)}
+          title={
+            clientActionMode === 'unblock'
+              ? 'Вы уверены что хотите разблокировать клиента?'
+              : 'Вы уверены что хотите заблокировать клиента?'
+          }
+          showReason={false}
+          reason=""
+          reasonPlaceholder=""
+          isPending={Boolean(clientActionPendingId)}
+          isConfirmDisabled={Boolean(clientActionPendingId)}
+          error={clientActionError}
+          yesLabel="Да"
+          noLabel="Нет"
+          onReasonChange={noop}
+          onConfirm={() => void confirmToggleClientBlock()}
+          onClose={closeClientActionModal}
+        />
+
+        {isClientAssignModalOpen ? (
+          <div className={styles.modalOverlay} onClick={closeClientAssignModal} role="presentation">
+            <div className={styles.clientAssignModalCard} onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true">
+              <h4 className={styles.clientAssignModalTitle}>{clientAssignType === 'package' ? 'Пакет' : 'Абонемент'}</h4>
+
+              <div className={styles.clientAssignDropdown} ref={clientAssignDropdownRef}>
+                <button
+                  type="button"
+                  className={styles.clientAssignSelectTrigger}
+                  onClick={() => setIsClientAssignDropdownOpen((prev) => !prev)}
+                  disabled={isClientAssignOptionsLoading || isClientAssignSubmitting || clientAssignOptions.length === 0}
+                >
+                  {selectedClientAssignLabel}
+                </button>
+
+                {isClientAssignDropdownOpen ? (
+                  <div className={styles.clientAssignDropdownMenu}>
+                    {clientAssignOptions.map((option) => (
+                      <button
+                        type="button"
+                        key={option.id}
+                        className={styles.clientAssignDropdownOption}
+                        onClick={() => {
+                          setSelectedClientAssignOptionId(option.id)
+                          setIsClientAssignDropdownOpen(false)
+                        }}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+
+              {isClientAssignOptionsLoading ? (
+                <p className={styles.modalInfo}>{clientAssignType === 'package' ? 'Загружаем пакеты...' : 'Загружаем абонементы...'}</p>
+              ) : null}
+              {clientAssignError ? <p className={styles.modalError}>{clientAssignError}</p> : null}
+
+              <div className={styles.clientAssignActions}>
+                <button
+                  className={styles.clientAssignSubmitButton}
+                  type="button"
+                  onClick={() => void submitClientAssign()}
+                  disabled={isClientAssignSubmitting || isClientAssignOptionsLoading || !selectedClientAssignOptionId}
+                >
+                  Добавить
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </section>
     )
   }

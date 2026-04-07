@@ -1,6 +1,9 @@
 import { httpClient } from '@shared/lib/http/httpClient'
 import type {
+  GymClientListItem,
   CurrentGymAdmin,
+  GymMembershipOption,
+  GymPackageOption,
   GymReview,
   GymApplicationPayload,
   GymTrainerListItem,
@@ -174,6 +177,46 @@ function toGymReview(raw: unknown): GymReview | null {
   }
 }
 
+function toGymMembershipOption(raw: unknown): GymMembershipOption | null {
+  const source = asRecord(raw)
+
+  if (!source) {
+    return null
+  }
+
+  const id = typeof source.id === 'string' ? source.id : null
+  const name = typeof source.name === 'string' ? source.name.trim() : ''
+
+  if (!id || !name) {
+    return null
+  }
+
+  return {
+    id,
+    label: name,
+  }
+}
+
+function toGymPackageOption(raw: unknown): GymPackageOption | null {
+  const source = asRecord(raw)
+
+  if (!source) {
+    return null
+  }
+
+  const id = typeof source.id === 'string' ? source.id : null
+  const name = typeof source.name === 'string' ? source.name.trim() : ''
+
+  if (!id || !name) {
+    return null
+  }
+
+  return {
+    id,
+    label: name,
+  }
+}
+
 export async function fetchCurrentGymAdmin(): Promise<CurrentGymAdmin> {
   const payload = await httpClient.request<CurrentGymAdmin>('/auth/me')
 
@@ -329,12 +372,65 @@ function toGymTrainer(raw: unknown): GymTrainerListItem | null {
   }
 }
 
+function toGymClient(raw: unknown): GymClientListItem | null {
+  const source = asRecord(raw)
+
+  if (!source) {
+    return null
+  }
+
+  const userId = typeof source.id === 'string' ? source.id : null
+  const firstName = typeof source.first_name === 'string' ? source.first_name.trim() : ''
+  const lastName = typeof source.last_name === 'string' ? source.last_name.trim() : ''
+  const patronymic = typeof source.patronymic === 'string' ? source.patronymic.trim() : ''
+  const blockedAt = typeof source.blocked_at === 'string' || source.blocked_at === null ? source.blocked_at : null
+  const fallbackName = typeof source.email === 'string' ? source.email.trim() : ''
+  const fullName = [lastName, firstName, patronymic].filter((item) => item.length > 0).join(' ')
+  const activeMembershipRaw = asRecord(source.active_membership)
+  const membershipName =
+    typeof activeMembershipRaw?.membership_type_name === 'string' ? activeMembershipRaw.membership_type_name.trim() : ''
+  const activePackageRaw = asRecord(source.active_package)
+  const packageName =
+    typeof activePackageRaw?.trainer_package_name === 'string' ? activePackageRaw.trainer_package_name.trim() : ''
+  const trainerFirstName = typeof activePackageRaw?.trainer_first_name === 'string' ? activePackageRaw.trainer_first_name.trim() : ''
+  const trainerLastName = typeof activePackageRaw?.trainer_last_name === 'string' ? activePackageRaw.trainer_last_name.trim() : ''
+  const packageSessionCount =
+    typeof activePackageRaw?.trainer_package_session_count === 'number' ? activePackageRaw.trainer_package_session_count : null
+  const packageSessionsLeft = typeof activePackageRaw?.sessions_left === 'number' ? activePackageRaw.sessions_left : null
+  const trainerFullName = [trainerLastName, trainerFirstName].filter((item) => item.length > 0).join(' ')
+  const packageTitleFromTrainer =
+    trainerFullName.length > 0 && packageSessionCount !== null ? `${trainerFullName} - ${packageSessionCount} занятий` : ''
+
+  if (!userId) {
+    return null
+  }
+
+  return {
+    user_id: userId,
+    full_name: fullName || fallbackName || `Пользователь ${userId.slice(0, 8)}`,
+    blocked_at: blockedAt,
+    active_membership_name: membershipName || null,
+    active_package_name: packageTitleFromTrainer || packageName || null,
+    active_package_sessions_left: packageSessionsLeft,
+  }
+}
+
 export async function fetchGymTrainerUsers(gymId: string): Promise<GymTrainerListItem[]> {
   const payload = await httpClient.request<unknown>(`/auth/users?gym_id=${encodeURIComponent(gymId)}&role=TRAINER`)
 
   return asArray(payload)
     .map(toGymTrainer)
     .filter((item): item is GymTrainerListItem => item !== null)
+}
+
+export async function fetchGymClientUsers(gymId: string): Promise<GymClientListItem[]> {
+  const payload = await httpClient.request<unknown>(
+    `/auth/users?gym_id=${encodeURIComponent(gymId)}&role=CLIENT&include_blocked=True`,
+  )
+
+  return asArray(payload)
+    .map(toGymClient)
+    .filter((item): item is GymClientListItem => item !== null)
 }
 
 export async function fetchGymTrainers(gymId: string): Promise<GymTrainerOption[]> {
@@ -346,9 +442,57 @@ export async function fetchGymTrainers(gymId: string): Promise<GymTrainerOption[
   }))
 }
 
+export async function fetchGymMembershipOptions(gymId: string): Promise<GymMembershipOption[]> {
+  const payload = await httpClient.request<unknown>(`/gyms/${gymId}/memberships`)
+
+  return asArray(payload)
+    .map(toGymMembershipOption)
+    .filter((item): item is GymMembershipOption => item !== null)
+}
+
+export async function fetchGymPackageOptions(gymId: string): Promise<GymPackageOption[]> {
+  const payload = await httpClient.request<unknown>(`/gyms/${gymId}/packages`)
+
+  return asArray(payload)
+    .map(toGymPackageOption)
+    .filter((item): item is GymPackageOption => item !== null)
+}
+
 export async function deleteGymUserAccount(userId: string): Promise<void> {
   await httpClient.request(`/auth/users/${userId}`, {
     method: 'DELETE',
+  })
+}
+
+export async function blockGymClientUser(gymId: string, userId: string): Promise<void> {
+  await httpClient.request(`/gyms/${gymId}/block/${userId}`, {
+    method: 'POST',
+  })
+}
+
+export async function unblockGymClientUser(gymId: string, userId: string): Promise<void> {
+  await httpClient.request(`/gyms/${gymId}/unblock/${userId}`, {
+    method: 'POST',
+  })
+}
+
+export async function assignClientTrainerPackage(userId: string, trainerPackageId: string): Promise<void> {
+  await httpClient.request('/gyms/user-trainer-packages', {
+    method: 'POST',
+    body: {
+      user_id: userId,
+      trainer_package_id: trainerPackageId,
+    },
+  })
+}
+
+export async function assignClientMembership(userId: string, membershipTypeId: string): Promise<void> {
+  await httpClient.request('/gyms/client-memberships', {
+    method: 'POST',
+    body: {
+      user_id: userId,
+      membership_type_id: membershipTypeId,
+    },
   })
 }
 

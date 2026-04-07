@@ -97,6 +97,25 @@ export type GymTrainerListItem = {
   password: string | null
 }
 
+export type GymClientListItem = {
+  user_id: string
+  full_name: string
+  blocked_at: string | null
+  active_membership_name: string | null
+  active_package_name: string | null
+  active_package_sessions_left: number | null
+}
+
+export type GymMembershipOption = {
+  id: string
+  label: string
+}
+
+export type GymPackageOption = {
+  id: string
+  label: string
+}
+
 export type GymPayload = {
   id: string
   status: GymStatus
