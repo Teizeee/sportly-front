@@ -70,6 +70,7 @@ type GymTabPanelProps = {
   isServicesLoading: boolean
   servicesError: string | null
   gymId: string | null
+  canAssignClientServices: boolean
   onMembershipCreated: () => Promise<void>
   onTrainerPackageCreated: () => Promise<void>
   onTrainerDeleted: () => Promise<void>
@@ -88,6 +89,7 @@ export function GymTabPanel({
   isServicesLoading,
   servicesError,
   gymId,
+  canAssignClientServices,
   onMembershipCreated,
   onTrainerPackageCreated,
   onTrainerDeleted,
@@ -863,7 +865,7 @@ export function GymTabPanel({
   }
 
   const openClientAssignModal = async (client: GymClientListItem, type: ClientAssignType) => {
-    if (!gymId) {
+    if (!gymId || !canAssignClientServices) {
       return
     }
 
@@ -1147,6 +1149,7 @@ export function GymTabPanel({
         clientMenuTargetId={clientMenuTargetId}
         clientMenuRef={clientMenuRef}
         onToggleClientMenu={(userId) => setClientMenuTargetId((prev) => (prev === userId ? null : userId))}
+        canAssignClientServices={canAssignClientServices}
         onOpenClientAssignModal={openClientAssignModal}
         clientActionTarget={clientActionTarget}
         clientActionMode={clientActionMode}

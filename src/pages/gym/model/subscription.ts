@@ -49,6 +49,18 @@ export function getGymSubscriptionWarning(endDate: string | null | undefined): G
   return null
 }
 
+export function isGymSubscriptionExpired(endDate: string | null | undefined): boolean {
+  const subscriptionEndDate = parseDateOnly(endDate)
+
+  if (!subscriptionEndDate) {
+    return false
+  }
+
+  const today = getTodayDateOnly()
+  const dateOnly = getTodayDateOnly(subscriptionEndDate)
+  return dateOnly.getTime() < today.getTime()
+}
+
 export function formatSubscriptionEndDate(value: string | null | undefined): string {
   const date = parseDateOnly(value)
 

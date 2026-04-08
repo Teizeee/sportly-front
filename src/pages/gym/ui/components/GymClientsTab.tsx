@@ -20,6 +20,7 @@ type GymClientsTabProps = {
   clientMenuTargetId: string | null
   clientMenuRef: RefObject<HTMLDivElement | null>
   onToggleClientMenu: (userId: string) => void
+  canAssignClientServices: boolean
   onOpenClientAssignModal: (client: GymClientListItem, type: ClientAssignType) => Promise<void>
   clientActionTarget: GymClientListItem | null
   clientActionMode: 'block' | 'unblock' | null
@@ -56,6 +57,7 @@ export function GymClientsTab({
   clientMenuTargetId,
   clientMenuRef,
   onToggleClientMenu,
+  canAssignClientServices,
   onOpenClientAssignModal,
   clientActionTarget,
   clientActionMode,
@@ -123,7 +125,7 @@ export function GymClientsTab({
                 >
                   Заблокировать
                 </button>
-                <div className={styles.clientPlusWrap} ref={clientMenuTargetId === client.user_id ? clientMenuRef : undefined}>
+                {canAssignClientServices ? <div className={styles.clientPlusWrap} ref={clientMenuTargetId === client.user_id ? clientMenuRef : undefined}>
                   <button
                     className={styles.clientPlusButton}
                     type="button"
@@ -142,7 +144,7 @@ export function GymClientsTab({
                       </button>
                     </div>
                   ) : null}
-                </div>
+                </div> : null}
               </div>
             </div>
           ))

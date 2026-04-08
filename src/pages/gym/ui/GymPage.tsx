@@ -7,7 +7,7 @@ import { SectionCard } from '@shared/ui/section-card/SectionCard'
 import { TabNav } from '@shared/ui/tab-nav/TabNav'
 import { submitGymApplication } from '../api/gymDashboardApi'
 import { gymTabs } from '../model/gymTabs'
-import { getGymSubscriptionWarning } from '../model/subscription'
+import { getGymSubscriptionWarning, isGymSubscriptionExpired } from '../model/subscription'
 import type { GymApplicationPayload, GymTabKey } from '../model/types'
 import { useGymDashboard } from '../model/useGymDashboard'
 import { GymTabPanel } from './components/GymTabPanel'
@@ -119,7 +119,9 @@ export function GymPage() {
   const gymTitle = me?.gym?.gym_application?.title ?? me?.gym_application?.title ?? 'Без названия'
   const gymAddress = me?.gym?.gym_application?.address ?? me?.gym_application?.address ?? '-'
   const gymPhone = me?.gym?.gym_application?.phone ?? me?.gym_application?.phone ?? '-'
-  const subscriptionWarning = getGymSubscriptionWarning(me?.gym?.subscription?.end_date)
+  const gymSubscriptionEndDate = me?.gym?.subscription?.end_date
+  const subscriptionWarning = getGymSubscriptionWarning(gymSubscriptionEndDate)
+  const isSubscriptionExpired = isGymSubscriptionExpired(gymSubscriptionEndDate)
 
   return (
     <DashboardShell>
@@ -173,6 +175,7 @@ export function GymPage() {
               isServicesLoading={servicesLoading}
               servicesError={servicesError}
               gymId={me?.gym?.id ?? null}
+              canAssignClientServices={!isSubscriptionExpired}
               onMembershipCreated={refresh}
               onTrainerPackageCreated={refresh}
               onTrainerDeleted={refresh}
