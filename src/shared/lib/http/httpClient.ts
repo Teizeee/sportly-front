@@ -19,7 +19,13 @@ function isRegisterPath(pathname: string): boolean {
 
 function buildUrl(path: string): URL {
   const normalizedPath = path.startsWith('/') ? path.slice(1) : path
-  return new URL(normalizedPath, API_BASE_URL)
+
+  if (/^https?:\/\//i.test(API_BASE_URL)) {
+    return new URL(normalizedPath, API_BASE_URL)
+  }
+
+  const normalizedBasePath = API_BASE_URL.startsWith('/') ? API_BASE_URL : `/${API_BASE_URL}`
+  return new URL(`${normalizedBasePath}${normalizedPath}`, window.location.origin)
 }
 
 async function parseResponseBody(response: Response): Promise<unknown> {
