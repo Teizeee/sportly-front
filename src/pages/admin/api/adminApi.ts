@@ -154,7 +154,7 @@ export async function updateUserById(
 }
 
 export async function fetchGyms(): Promise<EditableGym[]> {
-  const payload = await httpClient.request<unknown>('/gyms')
+  const payload = await httpClient.request<unknown>('/gyms/')
 
   return extractArrayPayload(payload)
     .map(toEditableGym)
