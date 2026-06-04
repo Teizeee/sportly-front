@@ -595,6 +595,7 @@ export async function createGymTrainerUser(payload: {
   await httpClient.request('/auth/register', {
     method: 'POST',
     body: payload,
+    forceAuth: true,
   })
 }
 

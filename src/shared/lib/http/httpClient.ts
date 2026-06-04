@@ -9,6 +9,7 @@ type RequestOptions = {
   body?: unknown
   headers?: HeadersInit
   skipAuth?: boolean
+  forceAuth?: boolean
 }
 
 const inFlightGetRequests = new Map<string, Promise<unknown>>()
@@ -43,7 +44,7 @@ async function parseResponseBody(response: Response): Promise<unknown> {
 }
 
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', body, headers, skipAuth = false } = options
+  const { method = 'GET', body, headers, skipAuth = false, forceAuth = false } = options
   const url = buildUrl(path)
   const requestHeaders = new Headers(headers)
   requestHeaders.set('Subsystem', 'web')
@@ -53,7 +54,7 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     requestHeaders.set('Content-Type', 'application/json')
   }
 
-  if (!skipAuth && !isRegisterPath(url.pathname)) {
+  if (!skipAuth && (forceAuth || !isRegisterPath(url.pathname))) {
     const accessToken = getAccessToken()
 
     if (accessToken) {
